@@ -28,13 +28,15 @@
 
 \section{Motivation}
 
-In this work, we follow the basic principles of smoothed particle hydrodynamics(SPH) to implement two of the most classic approaches in fluid simulation. We carry out extensive studies on the behavior of fluid particles under varying experimental conditions, as well as provide a handful of insights on how the stability or efficiency of the simulation could be improved by applying a few twists during various stages of the algorithms. The rest of this report will be divided into four sections. In section \ref{sec2}, we discuss the engineering aspect of a non-iterative, weakly-compressible SPH solver; in section \ref{sec3}, we discuss how an iterative procedure can be implemented to model position-based fluid; in section \ref{sec4}, we demonstrate several scenes featuring a variety of fluid behaviors to show the correctness and stability of our implementation; in the last section \ref{sec5}, we discuss how the hyper parameters affect the behavior of the fluid and how we may improve the simulation in terms of speed and robustness.
+In this work, we follow the basic principles of smoothed particle hydrodynamics(SPH) to implement two of the most classic approaches in fluid simulation. We carry out extensive studies on the behavior of fluid particles under varying experimental conditions, as well as provide a handful of insights on how the stability or efficiency of the simulation could be improved by applying a few twists during various stages of the algorithms. The rest of this report will be divided into four sections. In section \ref{sec2}, we underscore the engineering aspect of a non-iterative, weakly-compressible SPH solver; in section \ref{sec3}, we discuss how an iterative procedure can be implemented to model position-based fluid; in section \ref{sec4}, we demonstrate several scenes featuring a variety of fluid behaviors to show the correctness and stability of our implementation; in the last section \ref{sec5}, we discuss how the hyper parameters affect the behavior of the fluid and how we may improve the simulation in terms of speed and robustness.
 
 
 \section{Weakly Compressible SPH}
 \label{sec2}
 
-Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. An outline of the algorithm is shown in Alg. \ref{alg1}. In each update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them.
+Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volumes. Viscosity forces counteracts the divergence of the velocity field in the local area. An outline of the algorithm is shown in Alg. \ref{alg1}. In each update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of a proper, differentiable interpolating kernel. Then, the fluid particle densties are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
+
+Apart from the physical update of the particles, the particle sampling strategies for initializing the fluid and the boundary play an important role as well, since they indirectly determine the particle diameters and thus the smoothing length of the kernel function. Another key factor that needs to be handled with discretion is the time step size of each physical update. Too large a time step results in destablized simulation and incorrect particle interactions, while too small a time step leads to considerable waste of computational power. In the following, we unfold in detail some key aspects for implementing a proper WC-SPH solver.
 
 \large
 \begin{algorithm}
@@ -66,6 +68,21 @@ Weakly Compressible SPH updates the physical properties of fluid particles throu
 	}
 \end{algorithm}
 \normalsize
+
+\subsection{Particle Sampling}
+\subsection{Kernel Computation}
+\subsection{Density Estimation}
+\subsection{Acceleration Computation}
+\subsection{Time Step Determination}
+\subsection{Time Integration}
+
+\section{Position-based Fluid}
+\label{sec3}
+\section{Experiments}
+\label{sec4}
+\section{Miscellaneous}
+\label{sec5}
+
 
 \bibliographystyle{alpha}
 \bibliography{references}
