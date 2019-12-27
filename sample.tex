@@ -1,0 +1,61 @@
+Governed by the Navier-Stokes equation \eqref{eq1}, non-iterative SPH performs interpolation over the neighborhood of a particle to calculate its attributes and ultimately the forces it incurs within one time step of the simulation. The fluid attribute $ A_{i} $ of particle i at position $ \boldsymbol{x}_{i} $ is computed as the weighted sum of  $ A_{j} $ over all neighboring particles j, with the weights given by a user-defined kernel function W that satisfies the following conditions:
+
+\begin{itemize}
+    \item The function has an integral value of one over its acting domain.
+    \item The function approximates the $ Dirac $-$ \delta $ distribution as its smoothing length approaches zero.
+    \item The function is non-negative.
+    \item The function is symmetric.
+    \item The function is of compact support (i.e. the function value remains zero beyond its smoothing length).
+\end{itemize}
+
+After all forces are computed, time integration methods like symplectic Euler or leap frog is carried out to update particle position and speed. Denoting with $p$ the pressure, $\boldsymbol{v}$ the velocity and $\rho$ the density of a particle, a typical formulation of the Navier-Stokes equation models the acceleration of a particle as
+
+\begin{equation}
+	\label{eq1}
+	\frac{\delta \boldsymbol{v}}{\delta t} = -\frac{\nabla p}{\rho} + \nu \nabla^{2} \boldsymbol{v} + \frac{\boldsymbol{F}^{external}}{\rho},
+\end{equation}
+
+where $ \nu $ is the kinematic viscocity of the liquid and the three terms on the right hand side of the equation describes per unit volume the impact of pressure forces, viscosity forces and external forces respectively. 
+
+\subsection{SPH Procedure with splitting}
+
+The paper adopts here the splitting strategy as described by \cite{ihmsen2014sph}, where for each update step the advection forces $ \boldsymbol{F}^{advection} $ are separately computed and then used to calculate an intermediate advection velocity $ \boldsymbol{v}^{*} $. An advection density $ \rho^{*} $ is introduced to represent the expected density at the end of this time step as a result of the divergence in the velocity field assuming no compensating pressure force is generated. pressures $ p $ and pressure forces $ \boldsymbol{F}^{pressure} $ are afterwards handled conventionally. This updating scheme forces the solver to implicitly consider the impact of advection forces before generating pressure forces to counteract the deviation of density and therefore stablizes the simulation.
+\par
+Conventionally, a single global update step with the concept of spitting applied proceeds as in Alg. \ref{alg1}. To interpolate particle properties a neighborhood search is conducted at each time step to fetch the set of neighbors for each particle. Since such operations can be computationally expensive, spatial data structures(e.g. a uniform grid) that supports parallel operations are usually constructed at the beginning to accelerate the process. At each global step, the grid cells are queried and updated to efficiently maintain neighborhood information. To further minimize time consumed by inevitable query operations at each time step, particles are sorted in accordance with their spatial cell. In this way, spatially adjacent particles are stored on adjacent memory slots, enhancing the cache-hit rates during the simulation. Here, the paper chooses Z-order curve (see Fig. \ref{fig6}), a commonly used sorting function that effectively preserves spatial locality due to its fractal block structure, for particle indexing.
+
+\begin{figure}[tb]
+	\centering
+	\includegraphics[scale=0.5]{images/z}
+	\caption{\label{fig6} A Z-order curve in 2-dimensional space.}
+\end{figure}
+
+\large
+\begin{algorithm}
+	\DontPrintSemicolon
+	\SetAlgoLined
+	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
+	\SetAlCapNameFnt{\large}
+	\SetAlCapFnt{\large}
+	\caption{\label{alg1} One global step with splitting \cite{reinhardt2017fully}}
+	\SetKwFunction{FMain}{GlobalStep}
+	\SetKwProg{Fn}{Function}{:}{}
+	\Fn{\FMain{}}{
+		\For{each particle i}{
+			find neighbors j\;
+		}
+		\For{each particle i}{
+			compute advection force $ \boldsymbol{F}_{i}^{*} = \boldsymbol{F}_{i}^{viscosity} + \boldsymbol{F}_{i}^{ext} $\;
+			compute advection velocity $ \boldsymbol{v}_{i}^{*} $ using $ \boldsymbol{F}_{i}^{*} $\;
+		}
+		\For{each particle i}{
+			compute advection density $ \rho_{i}^{*} $\;
+			compute pressure $ p_{i} $\;
+		}
+		\For{each particle i}{
+			compute pressure force $ \boldsymbol{F}_{i}^{*} $\;
+			compute new particle velocity $ \boldsymbol{v}_{i}(t + \delta t) $\;
+			compute new particle position $ \boldsymbol{x}_{i}(t + \delta t) $\;
+		}
+	}
+\end{algorithm}
+\normalsize

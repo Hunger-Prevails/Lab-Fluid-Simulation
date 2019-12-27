@@ -1,0 +1,73 @@
+\documentclass[
+	11pt, 
+	DIV10,
+	ngerman,
+	a4paper, 
+	oneside, 
+	headings=normal, 
+	captions=tableheading,
+	final, 
+	numbers=noenddot
+]{scrartcl}
+
+
+\usepackage[ruled]{algorithm2e}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+
+
+\title{Fully Asynchronous SPH Simulation}
+\subtitle{\vspace{0.5cm}Lab: Fluid Simulation}
+\author{Yinglun, Qihui, Iohannes}
+
+
+\begin{document}
+\maketitle
+
+
+\section{Motivation}
+
+In this work, we follow the basic principles of smoothed particle hydrodynamics(SPH) to implement two of the most classic approaches in fluid simulation. We carry out extensive studies on the behavior of fluid particles under varying experimental conditions, as well as provide a handful of insights on how the stability or efficiency of the simulation could be improved by applying a few twists during various stages of the algorithms. The rest of this report will be divided into four sections. In section \ref{sec2}, we discuss the engineering aspect of a non-iterative, weakly-compressible SPH solver; in section \ref{sec3}, we discuss how an iterative procedure can be implemented to model position-based fluid; in section \ref{sec4}, we demonstrate several scenes featuring a variety of fluid behaviors to show the correctness and stability of our implementation; in the last section \ref{sec5}, we discuss how the hyper parameters affect the behavior of the fluid and how we may improve the simulation in terms of speed and robustness.
+
+
+\section{Weakly Compressible SPH}
+\label{sec2}
+
+Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. An outline of the algorithm is shown in Alg. \ref{alg1}. In each update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them.
+
+\large
+\begin{algorithm}
+	\DontPrintSemicolon
+	\SetAlgoLined
+	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
+	\SetAlCapNameFnt{\large}
+	\SetAlCapFnt{\large}
+	\caption{\label{alg1} One global step with splitting \cite{reinhardt2017fully}}
+	\SetKwFunction{FMain}{GlobalStep}
+	\SetKwProg{Fn}{Function}{:}{}
+	\Fn{\FMain{}}{
+		\For{each particle i}{
+			find neighbors j\;
+		}
+		\For{each particle i}{
+			compute advection force $ \boldsymbol{F}_{i}^{*} = \boldsymbol{F}_{i}^{viscosity} + \boldsymbol{F}_{i}^{ext} $\;
+			compute advection velocity $ \boldsymbol{v}_{i}^{*} $ using $ \boldsymbol{F}_{i}^{*} $\;
+		}
+		\For{each particle i}{
+			compute advection density $ \rho_{i}^{*} $\;
+			compute pressure $ p_{i} $\;
+		}
+		\For{each particle i}{
+			compute pressure force $ \boldsymbol{F}_{i}^{*} $\;
+			compute new particle velocity $ \boldsymbol{v}_{i}(t + \delta t) $\;
+			compute new particle position $ \boldsymbol{x}_{i}(t + \delta t) $\;
+		}
+	}
+\end{algorithm}
+\normalsize
+
+\bibliographystyle{alpha}
+\bibliography{references}
+
+\end{document}
