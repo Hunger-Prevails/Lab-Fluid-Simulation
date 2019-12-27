@@ -15,6 +15,8 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{amsmath}
+\usepackage{mathtools}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 
 
 \title{Fully Asynchronous SPH Simulation}
@@ -34,7 +36,7 @@ In this work, we follow the basic principles of smoothed particle hydrodynamics(
 \section{Weakly Compressible SPH}
 \label{sec2}
 
-Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volumes. Viscosity forces counteracts the divergence of the velocity field in the local area. An outline of the algorithm is shown in Alg. \ref{alg1}. In each update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of a proper, differentiable interpolating kernel. Then, the fluid particle densties are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
+Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single update step is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of a proper, differentiable interpolating kernel. Then, the fluid particle densties are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
 
 Apart from the physical update of the particles, the particle sampling strategies for initializing the fluid and the boundary play an important role as well, since they indirectly determine the particle diameters and thus the smoothing length of the kernel function. Another key factor that needs to be handled with discretion is the time step size of each physical update. Too large a time step results in destablized simulation and incorrect particle interactions, while too small a time step leads to considerable waste of computational power. In the following, we unfold in detail some key aspects for implementing a proper WC-SPH solver.
 
@@ -43,33 +45,79 @@ Apart from the physical update of the particles, the particle sampling strategie
 	\DontPrintSemicolon
 	\SetAlgoLined
 	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
-	\SetAlCapNameFnt{\large}
-	\SetAlCapFnt{\large}
-	\caption{\label{alg1} One global step with splitting \cite{reinhardt2017fully}}
-	\SetKwFunction{FMain}{GlobalStep}
+	\SetAlCapNameSty{textbf}
+	\caption{\label{alg1} A Single WC-SPH Update Step}
+	\SetKwFunction{FMain}{Step}
 	\SetKwProg{Fn}{Function}{:}{}
 	\Fn{\FMain{}}{
 		\For{each particle i}{
 			find neighbors j\;
 		}
 		\For{each particle i}{
-			compute advection force $ \boldsymbol{F}_{i}^{*} = \boldsymbol{F}_{i}^{viscosity} + \boldsymbol{F}_{i}^{ext} $\;
-			compute advection velocity $ \boldsymbol{v}_{i}^{*} $ using $ \boldsymbol{F}_{i}^{*} $\;
+			compute density $ \rho_{i} $\;
 		}
 		\For{each particle i}{
-			compute advection density $ \rho_{i}^{*} $\;
-			compute pressure $ p_{i} $\;
+			compute pressure force $ \boldsymbol{F}_{i}^{p} $\;
+			compute viscosity force $ \boldsymbol{F}_{i}^{v} $\;
+			compute external force $ \boldsymbol{F}_{i}^{e} $\;
+			compute acceleration $ \boldsymbol{a}_{i} $\;
 		}
+		determine the duration $ \delta t $ of the next physical update\;
 		\For{each particle i}{
-			compute pressure force $ \boldsymbol{F}_{i}^{*} $\;
-			compute new particle velocity $ \boldsymbol{v}_{i}(t + \delta t) $\;
-			compute new particle position $ \boldsymbol{x}_{i}(t + \delta t) $\;
+			compute velocity at next time stamp $ \boldsymbol{v}_{i}(t + \delta t) $\;
+			compute position at next time stamp $ \boldsymbol{x}_{i}(t + \delta t) $\;
 		}
 	}
 \end{algorithm}
 \normalsize
 
 \subsection{Particle Sampling}
+\subsubsection{Fluid Sampling}
+
+The fluid particles are initialized within the interior of an axis-aligned cube using a fixed sampling distance $ d_{0} $. Given a fixed rest density $ \rho_{0} $ for the fluid, the total mass of the fluid $ M_{fluid} $ can be calculated according to
+
+\begin{equation}
+	\label{eq1}
+	M_{fluid} = \rho_{0} * w_{a} * w_{b} * w_{c},
+\end{equation}
+
+where $ w_{a} $, $ w_{b} $ and $ w_{c} $ are the widths of the cube arris along x-, y- and z-axis respectively. Since we apply isometric sampling on the fluid volume, the total number of fluid particles $ N_{fluid} $ can be computed as
+
+\begin{equation}
+	\label{eq2}
+	N_{fluid} = \ceil{\frac{w_{a}}{d_{0}}} * \ceil{\frac{w_{b}}{d_{0}}} * \ceil{\frac{w_{c}}{d_{0}}}.
+\end{equation}
+
+Assuming all fluid particles share a common mass $ M_{0} $ and therefore a common diameter $ D_{0} $, we may compute the following properties of the fluid:
+
+\begin{equation}
+	\label{eq3}
+	M_{0} = \frac{M_{fluid}}{N_{fluid}}.
+\end{equation}
+
+\begin{equation}
+	\label{eq4}
+	D_{0} = \sqrt[3]{\frac{M_{0}}{\rho_{0}}}.
+\end{equation}.
+
+The fluid particles should be sampled in a way such that after initialization the density within the interior of the fluid cube approximates the rest density. To ensure that this is accomplished regardless of the user's choice on cube volume, the sampling distance and the rest density, we enforce the following numberical dependency for the rest of this report:
+
+\begin{equation}
+	\label{eq5}
+	r_{smooth} = D_{0} * 1.2.
+\end{equation}
+
+\begin{equation}
+	\label{eq6}
+	r_{support} = D_{0} * 2.4.
+\end{equation}.
+
+Here $ r_{smooth} $ and $ r_{support} $ are the smoothing length and the support radius of interpolating kernel function respectively.
+
+\subsubsection{Boundary Sampling}
+
+
+
 \subsection{Kernel Computation}
 \subsection{Density Estimation}
 \subsection{Acceleration Computation}
@@ -83,8 +131,7 @@ Apart from the physical update of the particles, the particle sampling strategie
 \section{Miscellaneous}
 \label{sec5}
 
-
-\bibliographystyle{alpha}
-\bibliography{references}
+% \bibliographystyle{alpha}
+% \bibliography{references}
 
 \end{document}
