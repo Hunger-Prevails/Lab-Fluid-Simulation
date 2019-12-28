@@ -17,7 +17,7 @@
 \usepackage{amsmath}
 \usepackage{mathtools}
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
-
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
 
 \title{Fully Asynchronous SPH Simulation}
 \subtitle{\vspace{0.5cm}Lab: Fluid Simulation}
@@ -62,10 +62,10 @@ Apart from the physical update of the particles, the particle sampling strategie
 			compute external force $ \boldsymbol{F}_{i}^{e} $\;
 			compute acceleration $ \boldsymbol{a}_{i} $\;
 		}
-		determine the duration $ \delta t $ of the next physical update\;
+		determine the time step size $ \delta t $ of the next physical update\;
 		\For{each particle i}{
-			compute velocity at next time stamp $ \boldsymbol{v}_{i}(t + \delta t) $\;
-			compute position at next time stamp $ \boldsymbol{x}_{i}(t + \delta t) $\;
+			compute velocity at next time stamp $ \boldsymbol{v}_{i}\left(t + \delta t\right) $\;
+			compute position at next time stamp $ \boldsymbol{x}_{i}\left(t + \delta t\right) $\;
 		}
 	}
 \end{algorithm}
@@ -78,47 +78,142 @@ The fluid particles are initialized within the interior of an axis-aligned cube 
 
 \begin{equation}
 	\label{eq1}
-	M_{fluid} = \rho_{0} * w_{a} * w_{b} * w_{c},
+	M_{fluid} = \rho_{0} \cdot w_{a} \cdot w_{b} \cdot w_{c},
 \end{equation}
 
 where $ w_{a} $, $ w_{b} $ and $ w_{c} $ are the widths of the cube arris along x-, y- and z-axis respectively. Since we apply isometric sampling on the fluid volume, the total number of fluid particles $ N_{fluid} $ can be computed as
 
 \begin{equation}
 	\label{eq2}
-	N_{fluid} = \ceil{\frac{w_{a}}{d_{0}}} * \ceil{\frac{w_{b}}{d_{0}}} * \ceil{\frac{w_{c}}{d_{0}}}.
+	N_{fluid} = \ceil{\frac{w_{a}}{d_{0}}} \cdot \ceil{\frac{w_{b}}{d_{0}}} \cdot \ceil{\frac{w_{c}}{d_{0}}}.
 \end{equation}
 
-Assuming all fluid particles share a common mass $ M_{0} $ and therefore a common diameter $ D_{0} $, we may compute the following properties of the fluid:
+Assuming all fluid particles share a common mass $ M_{0} $ and therefore a common diameter $ D_{0} $, we may compute these properties of the fluid as
 
 \begin{equation}
+\begin{split}
 	\label{eq3}
-	M_{0} = \frac{M_{fluid}}{N_{fluid}}.
+	M_{0} &= \frac{M_{fluid}}{N_{fluid}}, \\
+	D_{0} &= \sqrt[3]{\frac{M_{0}}{\rho_{0}}}.
+\end{split}
 \end{equation}
-
-\begin{equation}
-	\label{eq4}
-	D_{0} = \sqrt[3]{\frac{M_{0}}{\rho_{0}}}.
-\end{equation}.
 
 The fluid particles should be sampled in a way such that after initialization the density within the interior of the fluid cube approximates the rest density. To ensure that this is accomplished regardless of the user's choice on cube volume, the sampling distance and the rest density, we enforce the following numberical dependency for the rest of this report:
 
 \begin{equation}
-	\label{eq5}
-	r_{smooth} = D_{0} * 1.2.
+\begin{split}
+	\label{eq4}
+	h &= 1.2D_{0}, \\
+	H &= 2.4D_{0}.
+\end{split}
 \end{equation}
 
-\begin{equation}
-	\label{eq6}
-	r_{support} = D_{0} * 2.4.
-\end{equation}.
-
-Here $ r_{smooth} $ and $ r_{support} $ are the smoothing length and the support radius of interpolating kernel function respectively.
+Here $ h $ and $ H $ are the smoothing length and the support radius of interpolating kernel function respectively.
 
 \subsubsection{Boundary Sampling}
 
+Triangles are the basic elements of larger boundary structures. Taking the following steps is a possible way to densely sample boundary particles on a triangle:
 
+\begin{itemize}
+    \item expand the original triangle by a half of the sampling distance.
+    \item establish a pair of normalized orthogonal basis vectors $ \boldsymbol{u} $ and $ \boldsymbol{v} $ that would organize a grid.
+    \item generate particles located at the nodes of the aforementioned grid and discard particles that are generated outside the expanded triangle.
+    \item translate the generated particles by a common offset such that the center of their mass aligh with the center of the triangle.
+\end{itemize}
+
+\paragraph{Expansion of the Triangle} The first of these steps can be done efficiently by simple geometric manipulation. Assuming the three vertices A, B and C of the original triangle take position $ \boldsymbol{x}_{A} $, $ \boldsymbol{x}_{B} $ and $ \boldsymbol{x}_{C} $, we may compute normals for edges AB and BC within the plane in which the triangle lies as
+
+\begin{equation}
+\begin{split}
+	\label{eq5}
+	\boldsymbol{n}_{AB} &= \left(\boldsymbol{x}_{B} - \boldsymbol{x}_{A}\right) \times \left(\boldsymbol{x}_{C} - \boldsymbol{x}_{B}\right) \times \left(\boldsymbol{x}_{B} - \boldsymbol{x}_{A}\right), \\
+	\boldsymbol{n}_{BC} &= \left(\boldsymbol{x}_{C} - \boldsymbol{x}_{B}\right) \times \left(\boldsymbol{x}_{A} - \boldsymbol{x}_{C}\right) \times \left(\boldsymbol{x}_{C} - \boldsymbol{x}_{B}\right).
+\end{split}
+\end{equation}
+
+Now that we have obtained the edge normals, the new position $ \boldsymbol{x}_{B}^{\prime} $ of vertex B can be computed as
+
+\begin{equation}
+	\label{eq6}
+	\boldsymbol{x}_{B}^{\prime} = \boldsymbol{x}_{B} - \frac{d_{0}}{2} \cdot \frac{\boldsymbol{n}_{AB}}{\norm{\boldsymbol{n}_{AB}}} - \frac{d_{0}}{2} \cdot \frac{\boldsymbol{n}_{BC}}{\norm{\boldsymbol{n}_{BC}}}.
+\end{equation}
+
+The new positions $ \boldsymbol{x}_{C}^{\prime} $ and $ \boldsymbol{x}_{A}^{\prime} $ of vertex C and A can be computed in the same fashion.
+
+\paragraph{Determination of Basis Vectors} To cope with obtuse triangles, we always choose $ \boldsymbol{u} $ as the unit vector that aligns with the longest edge of the triangle. Without loss of generality, we may assume that edge AB is the longest edge and compute the basis vectors as follows:
+
+\begin{equation}
+\begin{split}
+	\label{eq7}
+	\boldsymbol{u} &= \frac{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}}, \\
+	\boldsymbol{v} &= \boldsymbol{u} \times \frac{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}} \times \boldsymbol{u}.
+\end{split}
+\end{equation}
+
+\paragraph{Generation of Particles} To generate boundary particles using a square sampling pattern, simply sampling particles at integer strides of the basis vectors suffices. That is, we generate a particle at location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
+
+\begin{equation}
+	\label{eq8}
+	\boldsymbol{P}_{ij} = \boldsymbol{x}_{A} + \left(i \cdot \boldsymbol{u} + j \cdot \boldsymbol{v}\right) \cdot d_{0}.
+\end{equation}
+
+As discussed in section \ref{sec5}, a rectangular grid leaves much space inbetween the grid nodes and results in uneven distribution of density for fluid particles near the boundary. To generate boundary particles using a hexagonal sampling pattern, we sample a particle at every node of a beehive-grid, that is, every location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
+
+\begin{equation}
+	\label{eq9}
+	\boldsymbol{P}_{ij} = \boldsymbol{x}_{A} + \left(\frac{\sqrt{3}}{2} \cdot i \cdot \boldsymbol{u} + \left( \frac{j \bmod 2}{2} + j\right) \cdot \boldsymbol{v}\right) \cdot d_{0}.
+\end{equation}
 
 \subsection{Kernel Computation}
+
+As stated above, SPH-based solvers approximate function values over a continuous domain by computing a weighted average over the local neighborhood at discrete particle locations. The interpolation function $ W $ and its derivative, therefore, serve as the cornerstone of SPH-based simulation, since they essentially determine the amount of influence each neighbor exerts on the particle in question. An ideal kernel function is required to hold a certain range of properties:
+
+\begin{itemize}
+    \item The function has an integral value of one over its acting domain.
+    \item The function approximates the $ Dirac $-$ \delta $ distribution as its smoothing length approaches zero.
+    \item The function is non-negative.
+    \item The function is symmetric.
+    \item The function is of compact support (i.e. the function value remains zero beyond this support range).
+\end{itemize}
+
+Apart from these constraints, to interpolate the derivative of a physical property, the derivative of the kernel function should constantly be available, which requires the kernel function to be (at least piecewise) continuous and differentiable. The cubic spline function is a typical candidate for such a kernel:
+
+\begin{equation}
+	\label{eq10}
+	s\left(q\right) = \frac{3}{2\pi}\left\{
+	\begin{array}{ll}
+            \frac{2}{3} - q^{2} + \frac{1}{2}q^{3}	& \quad 0 \leq q < 1 \\[1em]
+            \frac{1}{6}\left(2 - q\right)^{3}		& \quad 1 \leq q < 2 \\[1em]
+            0	& \quad 2 \leq q
+    \end{array}
+    \right..
+\end{equation}
+
+We may compute the derivative of the cubic spline function as
+
+\begin{equation}
+	\label{eq11}
+	s^{\prime}\left(q\right) = \frac{3}{2\pi}\left\{
+	\begin{array}{ll}
+            -2q + \frac{3}{2}q^{2}					& \quad 0 \leq q < 1 \\[1em]
+            -\frac{1}{2}\left(2 - q\right)^{2}		& \quad 1 \leq q < 2 \\[1em]
+            0	& \quad 2 \leq q
+    \end{array}
+    \right..
+\end{equation}
+
+The final interpolation function and its spatial gradient w.r.t. to the position $ \boldsymbol{x} $ of the particle in question can then be computed as
+
+\begin{equation}
+\begin{split}
+	\label{eq12}
+	W\left(\boldsymbol{x}, \boldsymbol{y}, h\right) &= \frac{1}{h^{3}}s\left(q\right) \\
+	\nabla_{\boldsymbol{x}} W &= \frac{1}{h^{4}} \cdot \frac{\boldsymbol{x} - \boldsymbol{y}}{\norm{\boldsymbol{x} - \boldsymbol{y}}} \cdot s^{\prime}\left(q\right),
+\end{split}
+\end{equation}
+
+where $ \boldsymbol{y} $ refer to the position of the neighbor particle and $ q = \frac{\norm{\boldsymbol{x} - \boldsymbol{y}}}{h} $ is the normalized distance between the particle in question and its neighbor.
+
 \subsection{Density Estimation}
 \subsection{Acceleration Computation}
 \subsection{Time Step Determination}
