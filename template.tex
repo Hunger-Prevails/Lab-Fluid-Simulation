@@ -36,7 +36,7 @@ In this work, we follow the basic principles of smoothed particle hydrodynamics(
 \section{Weakly Compressible SPH}
 \label{sec2}
 
-Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update step is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid neighbors and boundary neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of an kernel function that features a variety of characters. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
+Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update step is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of an kernel function that features a variety of characters. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
 
 Apart from the physical update of the particles, the particle sampling strategies for initializing the fluid and the boundary play an important role as well, since they indirectly determine the particle diameters and thus the smoothing length of the kernel function. Another key factor that needs to be handled with discretion is the time step size of each physical update. Too large a time step results in destabilized simulation and incorrect particle interactions, while too small a time step leads to considerable waste of computational power. In the following, we unfold in detail some key aspects for implementing such a WC-SPH solver.
 
@@ -113,7 +113,7 @@ Here $ h $ and $ H $ are the smoothing length and the support radius of interpol
 
 \subsubsection{Boundary Sampling}
 
-Triangles are the basic elements of larger boundary structures. Taking the following steps is a possible way to densely sample boundary particles on a triangle:
+Triangles are the basic elements of larger boundary structures. Taking the following steps is a possible way to densely sample solid particles on a triangle:
 
 \begin{itemize}
     \item expand the original triangle by a half of the sampling distance.
@@ -151,43 +151,32 @@ The new positions $ \boldsymbol{x}_{C}^{\prime} $ and $ \boldsymbol{x}_{A}^{\pri
 \end{split}
 \end{equation}
 
-\paragraph{Generation of Particles} To generate boundary particles using a square sampling pattern, simply sampling particles at integer strides of the basis vectors suffices. That is, we generate a particle at location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
+\paragraph{Generation of Particles} To generate solid particles using a square sampling pattern, simply sampling particles at integer strides of the basis vectors suffices. That is, we generate a particle at location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
 
 \begin{equation}
 	\label{eq8}
 	\boldsymbol{P}_{ij} = \boldsymbol{x}_{A} + \left(i \cdot \boldsymbol{u} + j \cdot \boldsymbol{v}\right) \cdot d_{0}.
 \end{equation}
 
-As discussed in section \ref{sec5}, a rectangular grid leaves much space inbetween the grid nodes, which can be the cause of undesired circumstances where density estimation near the border largely varies for adjacent fluid particles. To generate boundary particles using a hexagonal sampling pattern, we sample a particle at every node of a beehive-grid, that is, every location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
+As discussed in section \ref{sec5}, a rectangular grid leaves much space inbetween the grid nodes, which can be the cause of undesired circumstances where density estimation near the border largely varies for adjacent fluid particles. To generate solid particles using a hexagonal sampling pattern, we sample a particle at every node of a beehive-grid, that is, every location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
 
 \begin{equation}
 	\label{eq9}
 	\boldsymbol{P}_{ij} = \boldsymbol{x}_{A} + \left(\frac{\sqrt{3}}{2} \cdot i \cdot \boldsymbol{u} + \left( \frac{j \bmod 2}{2} + j\right) \cdot \boldsymbol{v}\right) \cdot d_{0}.
 \end{equation}
 
-Despite the effort above to sample the boundary with uniformly spaced boundary particles, the mass distribution of the border may look quite different near an intersection line between triangular meshes. To allow for uniform mass distribution in the border, mass correction based on the representative volume technique proposed by \cite{akinci2012versatile} is adopted. Assuming all boundary particles share the same mass $ M_{0} $, the volume $ V_{k} $ of a boundary particle $ k $ may be computed as:
+Despite the effort above to sample the boundary with uniformly spaced solid particles, the mass distribution of the border may look quite different near an intersection line between triangular meshes. To allow for uniform mass distribution in the border, mass correction based on the representative volume technique proposed by \cite{akinci2012versatile} is adopted. Assuming all solid particles share the same mass $ M_{b} $, the volume $ V_{k} $ of a solid particle $ k $ may be computed as:
 
 \begin{equation}
 	\label{eq10}
-    V_{k} = \frac{M_{0}}{\rho_{b}} = \frac{M_{0}}{\sum_{l \in \mathcal{N}_{k}} M_{0} W_{kl}} = \frac{1.0}{\sum_{l \in \mathcal{N}_{k}} W_{kl}},
+    V_{k} = \frac{M_{b}}{\rho_{b}} = \frac{M_{b}}{\sum_{l \in \mathcal{N}_{k}} M_{b} W_{kl}} = \frac{1.0}{\sum_{l \in \mathcal{N}_{k}} W_{kl}},
 \end{equation}
 
 where $ \rho_{b} $ is the rest density for the boundary in general.
 
 \subsection{Kernel Computation}
 
-SPH-based solvers approximate function values over a continuous domain by computing a weighted average over the local neighborhood at discrete particle locations. The kernel function $ W $ and its derivative, therefore, serve as the cornerstone of SPH-based simulation, since they essentially determine the amount of influence each neighbor exerts on the particle in question. An ideal kernel function, due to its interpolation nature, is expected to inherit a handful of properties such as:
-
-\begin{itemize}
-    \item The function has an integral value of one over its acting domain.
-    \item The function approximates the $ Dirac $-$ \delta $ distribution as its smoothing length approaches zero.
-    \item The function is non-negative.
-    \item The function is symmetric.
-    \item The function is of compact support (i.e. the function value remains zero beyond this support range).
-    \item The function is (at least piecewise) continuous and differentiable.
-\end{itemize}
-
-The cubic spline function is a typical candidate for such a kernel:
+SPH-based solvers approximate function values over a continuous domain by computing a weighted average over the local neighborhood at discrete particle locations. The kernel function $ W $ and its derivative, therefore, serve as the cornerstone of SPH-based simulation, since they essentially determine the amount of influence each neighbor exerts on the particle in question. An ideal kernel function, due to its interpolation nature, is expected to inherit a handful of characters. The cubic spline function is a typical candidate for such a kernel:
 
 \begin{equation}
 	\label{eq11}
@@ -227,7 +216,7 @@ where $ \boldsymbol{y} $ refer to the position of the neighbor particle and $ q 
 
 \subsection{Density Estimation}
 
-Typical SPH-based solvers distinguish between the rest density $ \rho_{0} $ of the fluid and the estimated density $ \rho_{i} $ of a particular fluid particle $ i $. For incompressible fluid, $ \rho_{0} $ is expected to remain constant at every point within the fluid domain. For any particular particle $ i $, however, the estimated density $ \rho_{i} $ is an artificial property used to model the small amount of density deviation that is experienced in the local neighborhood. To counteract such deviation, pressure forces may be applied in each time step to guarantee volume incompressibily and thus water-like behaviour of the particles on a large scale. We may estimate the density of a particular fluid particle $ i $ as:
+Typical SPH-based solvers distinguish between the rest density $ \rho_{0} $ of the fluid and the estimated density $ \rho_{i} $ of a particular fluid particle $ i $. For incompressible fluid, $ \rho_{0} $ is expected to remain constant at every point within the fluid domain. For any particular particle $ i $, however, the estimated density $ \rho_{i} $ is an artificial property used to model the small amount of density deviation that is experienced in the local neighborhood. To counteract such deviation, pressure forces may be applied in each time step to guarantee volume conservation and thus water-like behaviour of the particles on a large scale. We may estimate the density of a particular fluid particle $ i $ as:
 
 \begin{equation}
     \label{eq14}
@@ -237,15 +226,39 @@ Typical SPH-based solvers distinguish between the rest density $ \rho_{0} $ of t
 where
 
 \begin{itemize}
-    \item $ \mathcal{N}_{i}^{f} $ and $ \mathcal{N}_{i}^{b} $ are the set of fluid and solid neighbors respectively.
+    \item $ \mathcal{N}_{i}^{f} $ and $ \mathcal{N}_{i}^{b} $ are the set of fluid and solid particle neighbors respectively.
     \item $ m_{j} $ is the mass associated with fluid particle $ j $.
-    \item $ V_{k} $ is the representative volume of boundary particle $ k $.
+    \item $ V_{k} $ is the representative volume of solid particle $ k $.
     \item $ W_{ij} $ is kernel function value evaluated at relative position $ \mathbf{x}_i - \mathbf{x}_j $.
 \end{itemize}
 
 \subsection{Acceleration Computation}
 
+Rather than to enforce strict incompressibility throughout the fluid domain, WC-SPH allows a minor amount of volume compression when fluid particles heavily interact with other particles. Under such circumstances, per-particle density estimation in densely resided regions in the fluid domain would exhibit a deviation from the rest density of the fluid. As a logical consequence, we may evaluate the pressure field at discrete particle locations and observe considerable variances. From such variances, WC-SPH generates a counteractive force for each particle against the spatial gradient of the pressure field in the local neighborhood. An evaluation of the pressure field at the discrete particle location $ \boldsymbol{x}_{i} $ may look like:
 
+\begin{equation}
+	\label{eq15}
+    p_{i} = \max(0, B(\rho_{i} - \rho_{0}))
+\end{equation}
+
+where $ B $ is an artificial hyperparam that refers to the stiffness of the fluid. Negative pressure values are clamped to zero out of the practical concern to avoid clotting behaviour where particle neighborhoods are under-populated. WC-SPH solvers compute in each time step the internal and external forces that act upon a particle via an array of explicit equations. Accelerations that result from such forces are then accumulated and passed on for time integration. In our implementation we separately compute the following component forces for each fluid particle $ i $:
+
+\begin{itemize}
+    \item The pressure components $ \mathbf{F}_{i}^{p} $ as a result of interation with its fluid particle neighbors.
+    \item The pressure components $ \mathbf{G}_{i}^{p} $ as a result of interation with its solid particle neighbors.
+    \item The viscosity components $ \mathbf{F}_{i}^{v} $ as a result of velocity inconformity with its fluid particle neighbors.
+    \item The friction components $ \mathbf{G}_{i}^{v} $ as a result of friction with its solid particle neighbors.
+    \item The external components $ \mathbf{F}_{i}^{e} $ as a result of externally acting forces, typically gravity.
+\end{itemize}
+
+Accelerations are then accumulated as:
+
+\begin{equation}
+	\label{eq16}
+	\boldsymbol{a}_{i} = \left(\mathbf{F}_{i}^{p} + \mathbf{G}_{i}^{p} + \mathbf{F}_{i}^{e} + \nu \cdot \mathbf{G}_{i}^{p} + \mu \cdot \mathbf{G}_{i}^{v} \right) / M_{0}
+\end{equation}
+
+where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respective components. We conducted ablation studies in Sec. \ref{sec4} to understand the effects of the aforementioned hyperparams.
 
 \subsection{Time Step Determination}
 
@@ -335,7 +348,7 @@ where
 \section{Miscellaneous}
 \label{sec5}
 
-% \bibliographystyle{alpha}
-% \bibliography{references}
+\bibliographystyle{alpha}
+\bibliography{references}
 
 \end{document}
