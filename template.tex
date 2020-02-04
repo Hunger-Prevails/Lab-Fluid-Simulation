@@ -255,23 +255,28 @@ Accelerations are then accumulated as:
 
 \begin{equation}
 	\label{eq16}
-	\boldsymbol{a}_{i} = \left(\mathbf{F}_{i}^{p} + \mathbf{G}_{i}^{p} + \mathbf{F}_{i}^{e} + \nu \cdot \mathbf{G}_{i}^{p} + \mu \cdot \mathbf{G}_{i}^{v} \right) / M_{0}
+	\boldsymbol{a}_{i} = \left(\mathbf{F}_{i}^{p} + \mathbf{F}_{i}^{v} + \mathbf{F}_{i}^{e} + \nu \cdot \mathbf{G}_{i}^{p} + \mu \cdot \mathbf{G}_{i}^{v} \right) / M_{0}
 \end{equation}
 
-where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respective components. We conducted ablation studies in Sec. \ref{sec4} to understand the effects of the aforementioned hyperparams.
+where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respective components. We conduct ablation studies in Sec. \ref{sec4} to understand the effects of the aforementioned hyperparams.
 
-\subsection{Time Step Determination}
+\subsection{Time Integration}
+
+In WC-SPH simulation, the maximum time step size allowed at the current state is upper-bounded by the CFL condition \eqref{eq17}. Intuitively, the CFL condition enforces that a particle does not travel in one time step a distance that exceeds half the particle diameter $ D_{0} $. In practice, however, such a condition may not be sufficient to avoid the occurence of excessive pressure, especially in cases where particles obtain high kinematic energy due to intensive interactions. Therefore, a hard cap $ T_{0} $ is introduced as a further constraint.
 
 \begin{equation}
+	\label{eq17}
 	\Delta t_{courant} = 0.5 \cdot \frac{D_{0}}{\norm{\boldsymbol{v}_{max}}}
 \end{equation}
+
+An outline of our simulation pipeline is illustrated in Alg. \ref{alg2}. To be able to render the scene directly from instant snapshots of the system, we implement our simulation loop in a way such that time lardmarks, which are defined as multiples of the hard cap $ T_{0} $, are never jumped over. Within each pass of the while-loop, we determine the time step size $ \Delta t $ from the current state, perform one physical update and increment the simulation time by $ \Delta t $.
 
 \large
 \begin{algorithm}
 	\SetAlgoLined
 	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
 	\SetAlCapNameSty{textbf}
-	\caption{\label{alg1} Simulation Loop}
+	\caption{\label{alg2} Simulation Loop}
 	\SetKwFunction{FMain}{Main}
 	\SetKwProg{Fn}{Function}{:}{}
 	\Fn{\FMain{}}{
@@ -291,7 +296,18 @@ where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respecti
 \end{algorithm}
 \normalsize
 
-\subsection{Time Integration}
+The time step size $ \Delta t $ directly influences how far the system evolves into the future with one time integration step. Here we adopt a modified version of the standard explicit Euler integration scheme:
+
+\begin{equation}
+	\label{eq18}
+	\begin{split}
+		\mathbf{v}_{i}(t + \Delta t) &= \mathbf{v}_{i}(t) + \Delta t \cdot \mathbf{a}_{i} \\[1em]
+		\mathbf{v}_{i}^{*} &= \mathbf{v}_{i}(t + \Delta t) + 2\epsilon \sum_{j \in \mathcal{N}_{i}} m_{j} \frac{\mathbf{v}_{j}(t + \Delta t) - \mathbf{v}_{i}(t + \Delta t)}{\rho_{i} + \rho_{j}} W_{ij} \\[1em]
+		\mathbf{x}_{i}(t + \Delta t) &= \mathbf{x}_{i}(t) + \Delta t \cdot \mathbf{v}_{i}^{*}
+	\end{split}
+\end{equation}
+
+where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $ \mathbf{v}_{i}(t + \Delta t) $ a small bias that is a weighted average of the velocity differences in the local neighborhood and $ \epsilon $ is a hyperparam that controls the magnitude of such a small bias. This modification aims at denoising particle motion in the local area and improves visual plausibility of the animation.
 
 \section{Position-based Fluid}
 \label{sec3}
@@ -302,7 +318,7 @@ where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respecti
 	\SetAlgoLined
 	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
 	\SetAlCapNameSty{textbf}
-	\caption{\label{alg1} A Single PBF-SPH Update}
+	\caption{\label{alg3} A Single PBF-SPH Update}
 	\SetKwFunction{FMain}{update}
 	\SetKwProg{Fn}{Function}{:}{}
 	\Fn{\FMain{$ \Delta t $}}{
