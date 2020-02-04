@@ -246,7 +246,7 @@ where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respecti
 
 \subsection{Time Integration}
 
-In WC-SPH simulation, the maximum time step size allowed at the current state is upper-bounded by the CFL condition \eqref{eq17}. Intuitively, the CFL condition enforces that a particle does not travel in one time step a distance that exceeds half the particle diameter $ D_{0} $. In practice, however, such a condition may not be sufficient to avoid the occurence of excessive pressure, especially in cases where particles obtain high kinematic energy due to intensive interactions. Therefore, a hard cap $ T_{0} $ is introduced as a further constraint.
+In WC-SPH simulation, the maximum time step size allowed at the current state is upper-bounded by the CFL condition \eqref{eq16}. Intuitively, the CFL condition enforces that a particle does not travel in one time step a distance that exceeds half the particle diameter $ D_{0} $. In practice, however, such a condition may not be sufficient to avoid the occurence of excessive pressure, especially in cases where particles obtain high kinematic energy due to intensive interactions. Therefore, a hard cap $ T_{0} $ is introduced as a further constraint.
 
 \begin{equation}
 	\label{eq16}
@@ -359,7 +359,7 @@ An outline of a single PBF update is shown in Alg. \ref{alg3}. In each time step
 	\Delta \hat{\boldsymbol{x}} = M^{-1} \nabla C_{i} \cdot \lambda_{i}
 \end{equation}
 
-where $ \lambda_{i} $ is the single variable that controls the stride of the correction. By pulling Eq. \eqref{eq21} into the first-order Taylor expansion of Eq. \eqref{eq20} we obtain:
+where $ \lambda_{i} $ is the single variable that controls the stride of the correction. By pulling Eq. \eqref{eq22} into the first-order Taylor expansion of Eq. \eqref{eq21} we obtain:
 
 \begin{equation}
 	\label{eq23}
@@ -383,20 +383,45 @@ where
 
 Since the we are practically reaching for the solution of a non-linear system of equations with a linear approach, this correction may be applied multiple times until the violation shrinks to an acceptable scale. We conduct ablation study on how the number of corrective iterations and the introduction of the stride damper affect the behaviour of the fluid in Sec. \ref{sec4}.
 
-\subsection{Surface Tenstion}
+\subsection{Surface Tension}
 
 To allow our simulations to further impress, cohesion forces and adhesion forces are added to our implementation to model surface tension at microscopic level.
 
 \paragraph{Cohesion Forces}
 
-Cohesion forces model the interation between a pair of water molecules when they get close. The distance between the two molecules decide whether they attract or repel each other. The cohesion force incurred by a fluid particle in our simulation may be approximated as:
+Cohesion forces model the interation between a pair of water molecules when they get close. The distance between the two molecules decide whether they attract or repel each other. Given a special kernel function $ W^{c} $, the cohesion force incurred by a fluid particle in our simulation may be approximated as:
 
 \begin{equation}
 	\label{eq25}
-	\mathbf{F}_{i}^{c} = - \gamma m_i \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} m_j K_{ij} W_{c}(\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}, H) \cdot \frac{\mathbf{x}_{i} - \mathbf{x}_{j}}{\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}}
+	\mathbf{F}_{i}^{c} = - \gamma m_{i} \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} m_j K_{ij} W^{c}(\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}, H) \cdot \frac{\mathbf{x}_{i} - \mathbf{x}_{j}}{\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}}
 \end{equation}
 
-where $ \gamma $ is a hyperparam that controls the scale and $ K_{ij} = \frac{\rho_{i} + \rho_{j}}{2\rho_{0}} $ is a normalizer that compensates for under-population in the local space. Since cohesion forces alone are in practice insufficient to guarantee a water-like fluid surface, we introduce an additional component $ \mathbf{F}_{i}^{n} $ that counteracts a high curvature by enforcing surface normals evaluated at adjacent particle locations to be similar.
+where $ \gamma $ is a hyperparam that controls the scale and $ K_{ij} = \frac{\rho_{i} + \rho_{j}}{2\rho_{0}} $ is a normalizer that compensates for under-population in the local space. Since cohesion forces alone are in practice insufficient to guarantee a water-like fluid surface, we introduce an additional component $ \mathbf{F}_{i}^{n} $ that counteracts a high curvature by enforcing surface normals evaluated at adjacent particle locations to be similar:
+
+\begin{equation}
+	\label{eq26}
+	\mathbf{F}_{i}^{n} = - \gamma m_{i} \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} K_{ij} (\mathbf{n}_{i} - \mathbf{n}_{j})
+\end{equation}
+
+where $ \mathbf{n}_{i} $ and $ \mathbf{n}_{j} $ are surface normals at particle locations $ \mathbf{x}_{i} $ and $ \mathbf{x}_{j} $ respectively. Such surface normals in the fluid domain may be computed as:
+
+\begin{equation}
+	\label{eq27}
+	\mathbf{n}_{i} = H \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} \frac{m_{j}}{\rho_{j}} \nabla W_{ij}
+\end{equation}
+
+For particles on the fluid interface this normal vector points in the direction that is orthogonal to the fluid surface, whereas for interior particles its magnitude remains close to zero.
+
+\paragraph{Adhesion Forces}
+
+Adhesion forces model the attraction between a pair of fluid and solid molecules in close vicinity. Given a special kernel function $ W^{a} $, the adhesion force incurred by a fluid particle in our simulation may be computed as:
+
+\begin{equation}
+	\label{28}
+	\mathbf{F}_{i}^{a} = - \beta m_{i} \sum_{k \in \mathcal{N}_{i}:k \in \mathcal{B}} V_{k} W^{a}(\norm{\mathbf{x}_{i} - \mathbf{x}_{k}}, H) \cdot \frac{\mathbf{x}_{i} - \mathbf{x}_{k}}{\norm{\mathbf{x}_{i} - \mathbf{x}_{k}}}
+\end{equation}
+
+where $ \beta $ is a hyperparam that controls the scale. Effects of the aforementioned hyperparams are discussed in Sec. \ref{sec4}.
 
 \section{Experiments}
 \label{sec4}
