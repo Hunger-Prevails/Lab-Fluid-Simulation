@@ -36,7 +36,7 @@ In this work, we follow the basic principles of smoothed particle hydrodynamics(
 \section{Weakly Compressible SPH}
 \label{sec2}
 
-Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update is shown in Alg. \ref{alg1}.
+In weakly compressible SPH, physical properties of fluid particles are updated through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update is shown in Alg. \ref{alg1}.
 
 At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately to facilitate instant evaluation of function values at discrete locations in the fluid domain, which in the context of WC-SPH takes the form of an interpolation. Such an interpolation requires the existence of an kernel function that features a variety of characters. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are evaluated for each particle and the accelerations are accumulated for time integration.
 
@@ -94,24 +94,18 @@ where $ w_{a} $, $ w_{b} $ and $ w_{c} $ are the widths of the cube arris along 
 Assuming all fluid particles share a common mass $ M_{0} $ and therefore a common diameter $ D_{0} $, we may compute these properties of the fluid as
 
 \begin{equation}
-\begin{split}
 	\label{eq3}
-	M_{0} &= \frac{M_{fluid}}{N_{fluid}}, \\[1em]
-	D_{0} &= \sqrt[3]{\frac{M_{0}}{\rho_{0}}}.
-\end{split}
+	M_{0} = \frac{M_{fluid}}{N_{fluid}}, \quad D_{0} = \left(\frac{M_{0}}{\rho_{0}}\right)^{\frac{1}{3}}.
 \end{equation}
 
-The fluid particles should be sampled in a way such that after initialization the density within the interior of the fluid cube approximates the rest density. To ensure that this is accomplished regardless of the user's choice on cube volume, the sampling distance and the rest density, we enforce the following nummerical dependency for the rest of this report:
+The fluid particles should be sampled in a way such that after initialization the density within the interior of the fluid cube approximates the rest density. To ensure that this is accomplished regardless of the choice on cube volume, $ d_{0} $ and $ \rho_{0} $, we enforce the following nummerical dependency for the rest of this report:
 
 \begin{equation}
-\begin{split}
 	\label{eq4}
-	h &= 1.2D_{0}, \\[1em]
-	H &= 2.4D_{0}.
-\end{split}
+	10h = 5H = 12D_{0}
 \end{equation}
 
-Here $ h $ and $ H $ are the smoothing length and the support radius of interpolating kernel function respectively.
+where $ h $ and $ H $ are the smoothing length and the support radius of the interpolation kernel respectively.
 
 \subsubsection{Boundary Sampling}
 
@@ -146,11 +140,8 @@ The new positions $ \boldsymbol{x}_{C}^{\prime} $ and $ \boldsymbol{x}_{A}^{\pri
 \paragraph{Establishment of Basis Vectors} To cope with obtuse triangles, we always choose $ \boldsymbol{u} $ as the unit vector that aligns with the longest edge of the triangle. Without loss of generality, we may assume that edge AB is the longest edge and compute the basis vectors as follows:
 
 \begin{equation}
-\begin{split}
 	\label{eq7}
-	\boldsymbol{u} &= \frac{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}}, \\[1em]
-	\boldsymbol{v} &= \boldsymbol{u} \times \frac{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}} \times \boldsymbol{u}.
-\end{split}
+	\boldsymbol{u} = \frac{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{B} - \boldsymbol{x}_{A}}}, \quad \boldsymbol{v} = \boldsymbol{u} \times \frac{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}{\norm{\boldsymbol{x}_{C} - \boldsymbol{x}_{A}}} \times \boldsymbol{u}.
 \end{equation}
 
 \paragraph{Generation of Particles} To generate solid particles using a square sampling pattern, simply sampling particles at integer strides of the basis vectors suffices. That is, we generate a particle at location $ \boldsymbol{P}_{ij} $ for non-negative integer values of i and j such that
@@ -204,24 +195,14 @@ We may compute the derivative of the cubic spline function as
     \right..
 \end{equation}
 
-The final interpolation function and its spatial gradient w.r.t. to the position $ \boldsymbol{x} $ of the particle in question can then be computed as
-
-\begin{equation}
-\begin{split}
-	\label{eq13}
-	W\left(\boldsymbol{x}, \boldsymbol{y}, h\right) &= \frac{1}{h^{3}}s\left(q\right) \\[1em]
-	\nabla_{\boldsymbol{x}} W &= \frac{1}{h^{4}} \cdot \frac{\boldsymbol{x} - \boldsymbol{y}}{\norm{\boldsymbol{x} - \boldsymbol{y}}} \cdot s^{\prime}\left(q\right),
-\end{split}
-\end{equation}
-
-where $ \boldsymbol{y} $ refer to the position of the neighbor particle and $ q = \frac{\norm{\boldsymbol{x} - \boldsymbol{y}}}{h} $ is the normalized distance between the particle in question and its neighbor.
+where $ q = \frac{\norm{\boldsymbol{x}_{i} - \boldsymbol{x}_{j}}}{h} $ is the normalized distance between particle $ i $ and its neighbor $ j $.
 
 \subsection{Density Estimation}
 
 Typical SPH-based solvers distinguish between the rest density $ \rho_{0} $ of the fluid and the estimated density $ \rho_{i} $ of a particular fluid particle $ i $. For incompressible fluid, $ \rho_{0} $ is expected to remain constant at every point within the fluid domain. For any particular particle $ i $, however, the estimated density $ \rho_{i} $ is an artificial property used to model the small amount of density deviation that is experienced in the local neighborhood. To counteract such deviation, pressure forces may be applied in each time step to guarantee volume conservation and thus water-like behaviour of the particles on a large scale. We may estimate the density of a particular fluid particle $ i $ as:
 
 \begin{equation}
-    \label{eq14}
+    \label{eq13}
     \rho_{i} = \rho(\mathbf{x}_{i}) \approx \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} m_{j} W_{ij} + \sum_{k \in \mathcal{N}_{i}:k \in \mathcal{B}} \rho_{b} V_{k} W_{ik}
 \end{equation}
 
@@ -240,24 +221,24 @@ where
 Rather than to enforce strict incompressibility throughout the fluid domain, WC-SPH allows a minor amount of volume compression when fluid particles heavily interact with other particles. Under such circumstances, per-particle density estimation in densely resided regions in the fluid domain would exhibit a deviation from the rest density of the fluid. As a logical consequence, we may evaluate the pressure field at discrete particle locations and observe considerable variances. From such variances, WC-SPH generates a counteractive force for each particle against the spatial gradient of the pressure field in the local neighborhood. An evaluation of the pressure field at the discrete particle location $ \boldsymbol{x}_{i} $ may look like:
 
 \begin{equation}
-	\label{eq15}
+	\label{eq14}
     p_{i} = \max(0, \kappa(\rho_{i} - \rho_{0}))
 \end{equation}
 
 where $ \kappa $ is an artificial hyperparam that refers to the stiffness of the fluid. Negative pressure values are clamped to zero out of the practical concern to avoid clotting behaviour where particle neighborhoods are under-populated. WC-SPH solvers compute in each time step the internal and external forces that act upon a particle via an array of explicit equations. Accelerations that result from such forces are then accumulated and passed on for time integration. In our implementation we separately compute the following component forces for each fluid particle $ i $:
 
 \begin{itemize}
-    \item The pressure components $ \mathbf{F}_{i}^{p} $ as a result of interation with its fluid particle neighbors.
-    \item The pressure components $ \mathbf{G}_{i}^{p} $ as a result of interation with its solid particle neighbors.
-    \item The viscosity components $ \mathbf{F}_{i}^{v} $ as a result of velocity inconformity with its fluid particle neighbors.
-    \item The friction components $ \mathbf{G}_{i}^{v} $ as a result of friction with its solid particle neighbors.
-    \item The external components $ \mathbf{F}_{i}^{e} $ as a result of externally acting forces, typically gravity.
+    \item The pressure component $ \mathbf{F}_{i}^{p} $ as a result of interation with fluid particle neighbors.
+    \item The pressure component $ \mathbf{G}_{i}^{p} $ as a result of interation with solid particle neighbors.
+    \item The viscosity component $ \mathbf{F}_{i}^{v} $ as a result of velocity inconformity in the local space.
+    \item The friction component $ \mathbf{G}_{i}^{v} $ as a result of friction with its solid particle neighbors.
+    \item The external component $ \mathbf{F}_{i}^{e} $.
 \end{itemize}
 
 Accelerations are then accumulated as:
 
 \begin{equation}
-	\label{eq16}
+	\label{eq15}
 	\boldsymbol{a}_{i} = \left(\mathbf{F}_{i}^{p} + \mathbf{F}_{i}^{v} + \mathbf{F}_{i}^{e} + \nu \cdot \mathbf{G}_{i}^{p} + \mu \cdot \mathbf{G}_{i}^{v} \right) / M_{0}
 \end{equation}
 
@@ -268,7 +249,7 @@ where $ \nu $ and $ \mu $ are artificial hyperparams used to weight the respecti
 In WC-SPH simulation, the maximum time step size allowed at the current state is upper-bounded by the CFL condition \eqref{eq17}. Intuitively, the CFL condition enforces that a particle does not travel in one time step a distance that exceeds half the particle diameter $ D_{0} $. In practice, however, such a condition may not be sufficient to avoid the occurence of excessive pressure, especially in cases where particles obtain high kinematic energy due to intensive interactions. Therefore, a hard cap $ T_{0} $ is introduced as a further constraint.
 
 \begin{equation}
-	\label{eq17}
+	\label{eq16}
 	\Delta t_{courant} = 0.5 \cdot \frac{D_{0}}{\norm{\boldsymbol{v}_{max}}}
 \end{equation}
 
@@ -301,21 +282,16 @@ An outline of our simulation pipeline is illustrated in Alg. \ref{alg2}. To be a
 
 The time step size $ \Delta t $ directly influences how far the system evolves into the future with one time integration step. Here we adopt a modified version of the standard symplectic Euler integration scheme:
 
-\begin{equation}
-	\label{eq18}
-	\begin{split}
-		\mathbf{v}_{i}(t + \Delta t) &= \mathbf{v}_{i}(t) + \Delta t \cdot \mathbf{a}_{i} \\[1em]
-		\mathbf{v}_{i}^{*} &= \mathbf{v}_{i}(t + \Delta t) + 2\epsilon \sum_{j \in \mathcal{N}_{i}} m_{j} \frac{\mathbf{v}_{j}(t + \Delta t) - \mathbf{v}_{i}(t + \Delta t)}{\rho_{i} + \rho_{j}} W_{ij} \\[1em]
-		\mathbf{x}_{i}(t + \Delta t) &= \mathbf{x}_{i}(t) + \Delta t \cdot \mathbf{v}_{i}^{*}
-	\end{split}
-\end{equation}
+\begin{align}
+	\label{eq17} \mathbf{v}_{i}(t + \Delta t) &= \mathbf{v}_{i}(t) + \Delta t \cdot \mathbf{a}_{i} \\[1em]
+	\label{eq18} \mathbf{v}_{i}^{*} &= \mathbf{v}_{i}(t + \Delta t) + 2\epsilon \sum_{j \in \mathcal{N}_{i}} m_{j} \frac{\mathbf{v}_{j}(t + \Delta t) - \mathbf{v}_{i}(t + \Delta t)}{\rho_{i} + \rho_{j}} W_{ij} \\[0.5em]
+	\label{eq19} \mathbf{x}_{i}(t + \Delta t) &= \mathbf{x}_{i}(t) + \Delta t \cdot \mathbf{v}_{i}^{*}
+\end{align}
 
 where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $ \mathbf{v}_{i}(t + \Delta t) $ a small bias that is a weighted average of the velocity differences in the local neighborhood and $ \epsilon $ is a hyperparam that controls the magnitude of such a small bias. This modification aims at denoising particle motion in the local area and improves visual plausibility of the animation.
 
 \section{Position-based Fluid}
 \label{sec3}
-
-Instead of introducing an artificial pressure force to counteract density deviation, position-based fluid poses a scalar constraint $ C_{i} $ on the estimated density of each fluid particle $ i $. The fulfillment of such a constraint implies that the fluid is largely at rest state in the local neighborhood and that the density of the respective particle lies roughly around $ \rho_{0} $. Under circumstances where such a constraint is violated, however, the solver seeks to find, in an Newton-like iterative manner, a position correction that would locally restore the system to the rest state. An outline of a single PBF update is show in Alg. \ref{alg3}.
 
 \large
 \begin{algorithm}
@@ -331,10 +307,6 @@ Instead of introducing an artificial pressure force to counteract density deviat
 			compute density $ \rho_{i} $\;
 		}
 		\For{each particle i}{
-			compute viscosity force $ \boldsymbol{F}_{i}^{v} $\;
-			compute cohesion force $ \boldsymbol{F}_{i}^{c} $\;
-			compute adhesion force $ \boldsymbol{F}_{i}^{a} $\;
-			compute external force $ \boldsymbol{F}_{i}^{e} $\;
 			compute acceleration $ \boldsymbol{a}_{i} $\;
 		}
 		\For{each particle i}{
@@ -364,7 +336,67 @@ Instead of introducing an artificial pressure force to counteract density deviat
 \end{algorithm}
 \normalsize
 
-In each time step, a range of internal and external forces are evaluated and then used to perform one time integration step. Then, the violation of the 
+Instead of introducing an artificial pressure force to counteract density deviation, position-based fluid poses a scalar constraint $ C_{i} $ on the estimated density of each fluid particle $ i $:
+
+\begin{equation}
+	\label{eq20}
+	C_{i}(\hat{\boldsymbol{x}}) = \frac{\rho_{i}(\hat{\boldsymbol{x}})}{\rho_{0}} - 1 = 0
+\end{equation}
+
+where $ \hat{\boldsymbol{x}} $ denotes the concatenation of all position vectors involved in the computation of $ \rho_{i} $. The fulfillment of such a constraint implies that the fluid is largely at rest state in the local neighborhood and that the density of the respective particle lies roughly around $ \rho_{0} $. Under circumstances where such a constraint is violated, however, the solver seeks to find, in an Newton-like iterative manner, a position correction $ \Delta \hat{\boldsymbol{x}} $ that would locally restore the system to the rest state:
+
+\begin{equation}
+	\label{eq21}
+	C_{i}(\hat{\boldsymbol{x}} + \Delta \hat{\boldsymbol{x}}) = 0
+\end{equation}
+
+\subsection{Position Correction}
+
+An outline of a single PBF update is shown in Alg. \ref{alg3}. In each time step, accelerations that result from a range of internal and external forces are evaluated and then used to perform one time integration step. Then, the violation of the density constraint is determined for each particle and, out of the need to enforce energy convervation, we compute a position correction $ \Delta \hat{\boldsymbol{x}} $ that lies in the opposite direction as the spatial gradient of the constraint $ \nabla C_{i} $:
+
+\begin{equation}
+	\label{eq22}
+	\Delta \hat{\boldsymbol{x}} = M^{-1} \nabla C_{i} \cdot \lambda_{i}
+\end{equation}
+
+where $ \lambda_{i} $ is the single variable that controls the stride of the correction. By pulling Eq. \eqref{eq21} into the first-order Taylor expansion of Eq. \eqref{eq20} we obtain:
+
+\begin{equation}
+	\label{eq23}
+	C_{i}(\hat{\boldsymbol{x}}) + (\nabla C_{i})^{T} \Delta \hat{\boldsymbol{x}} = C_{i}(\hat{\boldsymbol{x}}) + (\nabla C_{i})^{T} M^{-1} \nabla C_{i} \cdot \lambda_{i} = 0
+\end{equation}
+
+As a logical next step we may compute $ \lambda_{i} $ as
+
+\begin{equation}
+	\label{eq24}
+	\lambda_{i} = - \frac{\sigma \cdot C_{i}(\hat{\boldsymbol{x}})}{S_{i} + \epsilon}.
+\end{equation}
+
+where
+
+\begin{itemize}
+    \item $ S_{i} = (\nabla C_{i})^{T} M^{-1} \nabla C_{i} $.
+    \item $ \epsilon $ is a small value added for nummerical stability.
+    \item $ \sigma $ is an artificial damper used to downscale the correction stride.
+\end{itemize}
+
+Since the we are practically reaching for the solution of a non-linear system of equations with a linear approach, this correction may be applied multiple times until the violation shrinks to an acceptable scale. We conduct ablation study on how the number of corrective iterations and the introduction of the stride damper affect the behaviour of the fluid in Sec. \ref{sec4}.
+
+\subsection{Surface Tenstion}
+
+To allow our simulations to further impress, cohesion forces and adhesion forces are added to our implementation to model surface tension at microscopic level.
+
+\paragraph{Cohesion Forces}
+
+Cohesion forces model the interation between a pair of water molecules when they get close. The distance between the two molecules decide whether they attract or repel each other. The cohesion force incurred by a fluid particle in our simulation may be approximated as:
+
+\begin{equation}
+	\label{eq25}
+	\mathbf{F}_{i}^{c} = - \gamma m_i \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} m_j K_{ij} W_{c}(\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}, H) \cdot \frac{\mathbf{x}_{i} - \mathbf{x}_{j}}{\norm{\mathbf{x}_{i} - \mathbf{x}_{j}}}
+\end{equation}
+
+where $ \gamma $ is a hyperparam that controls the scale and $ K_{ij} = \frac{\rho_{i} + \rho_{j}}{2\rho_{0}} $ is a normalizer that compensates for under-population in the local space. Since cohesion forces alone are in practice insufficient to guarantee a water-like fluid surface, we introduce an additional component $ \mathbf{F}_{i}^{n} $ that counteracts a high curvature by enforcing surface normals evaluated at adjacent particle locations to be similar.
 
 \section{Experiments}
 \label{sec4}
