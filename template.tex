@@ -36,9 +36,11 @@ In this work, we follow the basic principles of smoothed particle hydrodynamics(
 \section{Weakly Compressible SPH}
 \label{sec2}
 
-Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update step is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately so that the physical properties of the fluid particle in question may be interpolated from them later. Such an interpolation requires the existence of an kernel function that features a variety of characters. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are computed for each particle and the accelerations are accumulated for time integration. Typically the symplectic Euler scheme is used for time integration for its simplicity, although velocity smoothing could be adopted after velocity update for improved robustness against heavy bounces.
+Weakly Compressible SPH updates the physical properties of fluid particles through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. To find out where fluid particles should go in the next time step, typically pressure forces and viscosity forces are considered as the dominant components of the interaction forces. Pressure forces counteract any deviation from the rest density in the fluid volume. Viscosity forces counteracts the divergence of the velocity field in the local space. The outline of a single WC-SPH update is shown in Alg. \ref{alg1}.
 
-Apart from the physical update of the particles, the particle sampling strategies for initializing the fluid and the boundary play an important role as well, since they indirectly determine the particle diameters and thus the smoothing length of the kernel function. Another key factor that needs to be handled with discretion is the time step size of each physical update. Too large a time step results in destabilized simulation and incorrect particle interactions, while too small a time step leads to considerable waste of computational power. In the following, we unfold in detail some key aspects for implementing such a WC-SPH solver.
+At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately to facilitate instant evaluation of function values at discrete locations in the fluid domain, which in the context of WC-SPH takes the form of an interpolation. Such an interpolation requires the existence of an kernel function that features a variety of characters. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are evaluated for each particle and the accelerations are accumulated for time integration.
+
+Apart from updating the physical state of the system, the particle sampling strategies for initializing the fluid and the boundary play an important role as well, since they indirectly determine the particle diameters and thus the smoothing length of the kernel function. Another key factor that needs to be handled with discretion is the time step size of each physical update. Too large a time step results in destabilized simulation and incorrect particle interactions, while too small a time step leads to considerable waste of computational power. In the following, we unfold in detail some key aspects for implementing such a WC-SPH solver.
 
 \large
 \begin{algorithm}
@@ -119,7 +121,7 @@ Triangles are the basic elements of larger boundary structures. Taking the follo
     \item expand the original triangle by a half of the sampling distance.
     \item establish a pair of normalized orthogonal basis vectors $ \boldsymbol{u} $ and $ \boldsymbol{v} $ that would organize a grid.
     \item generate particles located at the nodes of the aforementioned grid and discard particles that are generated outside the expanded triangle.
-    \item translate the generated particles by a common offset such that the center of their mass align with the center of the triangle.
+    \item correct the particle masses by applying representative volume concept.
 \end{itemize}
 
 \paragraph{Expansion of the Triangle} The first of these steps can be done efficiently by simple geometric manipulation. Assuming the three vertices A, B and C of the original triangle take position $ \boldsymbol{x}_{A} $, $ \boldsymbol{x}_{B} $ and $ \boldsymbol{x}_{C} $, we may compute normals for edges AB and BC within the plane in which the triangle lies as
@@ -141,7 +143,7 @@ Now that we have obtained the edge normals, the new position $ \boldsymbol{x}_{B
 
 The new positions $ \boldsymbol{x}_{C}^{\prime} $ and $ \boldsymbol{x}_{A}^{\prime} $ of vertex C and A can be computed in the same fashion.
 
-\paragraph{Determination of Basis Vectors} To cope with obtuse triangles, we always choose $ \boldsymbol{u} $ as the unit vector that aligns with the longest edge of the triangle. Without loss of generality, we may assume that edge AB is the longest edge and compute the basis vectors as follows:
+\paragraph{Establishment of Basis Vectors} To cope with obtuse triangles, we always choose $ \boldsymbol{u} $ as the unit vector that aligns with the longest edge of the triangle. Without loss of generality, we may assume that edge AB is the longest edge and compute the basis vectors as follows:
 
 \begin{equation}
 \begin{split}
@@ -165,14 +167,14 @@ As discussed in section \ref{sec5}, a rectangular grid leaves much space inbetwe
 	\boldsymbol{P}_{ij} = \boldsymbol{x}_{A} + \left(\frac{\sqrt{3}}{2} \cdot i \cdot \boldsymbol{u} + \left( \frac{j \bmod 2}{2} + j\right) \cdot \boldsymbol{v}\right) \cdot d_{0}.
 \end{equation}
 
-Despite the effort above to sample the boundary with uniformly spaced solid particles, the mass distribution of the border may look quite different near an intersection line between triangular meshes. To allow for uniform mass distribution in the border, mass correction based on the representative volume technique proposed by \cite{akinci2012versatile} is adopted. Assuming all solid particles share the same mass $ M_{b} $, the volume $ V_{k} $ of a solid particle $ k $ may be computed as:
+\paragraph{Correction of Particle Masses} Despite the effort above to sample the boundary with uniformly spaced solid particles, the mass distribution of the border may look quite different near an intersection line between triangular meshes. To allow for uniform mass distribution in the border, mass correction based on the representative volume technique proposed by \cite{akinci2012versatile} is adopted. Assuming all solid particles share the same mass $ M_{b} $, the volume $ V_{k} $ of a solid particle $ k $ may be computed as:
 
 \begin{equation}
 	\label{eq10}
     V_{k} = \frac{M_{b}}{\rho_{b}} = \frac{M_{b}}{\sum_{l \in \mathcal{N}_{k}} M_{b} W_{kl}} = \frac{1.0}{\sum_{l \in \mathcal{N}_{k}} W_{kl}},
 \end{equation}
 
-where $ \rho_{b} $ is the rest density for the boundary in general.
+where $ \rho_{b} $ is the rest density for the boundary in general and $ \mathcal{N}_{k} $ is the set of particle neighbors for particle $ k $.
 
 \subsection{Kernel Computation}
 
@@ -220,13 +222,14 @@ Typical SPH-based solvers distinguish between the rest density $ \rho_{0} $ of t
 
 \begin{equation}
     \label{eq14}
-    \rho_{i} = \rho(\mathbf{x}_{i}) \approx \sum_{j \in \mathcal{N}_{i}^{f}} m_{j} W_{ij} + \sum_{k \in \mathcal{N}_{i}^{b}} \rho_{b} V_{k} W_{ik}
+    \rho_{i} = \rho(\mathbf{x}_{i}) \approx \sum_{j \in \mathcal{N}_{i}:j \in \mathcal{F}} m_{j} W_{ij} + \sum_{k \in \mathcal{N}_{i}:k \in \mathcal{B}} \rho_{b} V_{k} W_{ik}
 \end{equation}
 
 where
 
 \begin{itemize}
-    \item $ \mathcal{N}_{i}^{f} $ and $ \mathcal{N}_{i}^{b} $ are the set of fluid and solid particle neighbors respectively.
+    \item $ \mathcal{F} $ is the set of fluid particles.
+    \item $ \mathcal{B} $ is the set of solid particles.
     \item $ m_{j} $ is the mass associated with fluid particle $ j $.
     \item $ V_{k} $ is the representative volume of solid particle $ k $.
     \item $ W_{ij} $ is kernel function value evaluated at relative position $ \mathbf{x}_i - \mathbf{x}_j $.
@@ -238,10 +241,10 @@ Rather than to enforce strict incompressibility throughout the fluid domain, WC-
 
 \begin{equation}
 	\label{eq15}
-    p_{i} = \max(0, B(\rho_{i} - \rho_{0}))
+    p_{i} = \max(0, \kappa(\rho_{i} - \rho_{0}))
 \end{equation}
 
-where $ B $ is an artificial hyperparam that refers to the stiffness of the fluid. Negative pressure values are clamped to zero out of the practical concern to avoid clotting behaviour where particle neighborhoods are under-populated. WC-SPH solvers compute in each time step the internal and external forces that act upon a particle via an array of explicit equations. Accelerations that result from such forces are then accumulated and passed on for time integration. In our implementation we separately compute the following component forces for each fluid particle $ i $:
+where $ \kappa $ is an artificial hyperparam that refers to the stiffness of the fluid. Negative pressure values are clamped to zero out of the practical concern to avoid clotting behaviour where particle neighborhoods are under-populated. WC-SPH solvers compute in each time step the internal and external forces that act upon a particle via an array of explicit equations. Accelerations that result from such forces are then accumulated and passed on for time integration. In our implementation we separately compute the following component forces for each fluid particle $ i $:
 
 \begin{itemize}
     \item The pressure components $ \mathbf{F}_{i}^{p} $ as a result of interation with its fluid particle neighbors.
@@ -296,7 +299,7 @@ An outline of our simulation pipeline is illustrated in Alg. \ref{alg2}. To be a
 \end{algorithm}
 \normalsize
 
-The time step size $ \Delta t $ directly influences how far the system evolves into the future with one time integration step. Here we adopt a modified version of the standard explicit Euler integration scheme:
+The time step size $ \Delta t $ directly influences how far the system evolves into the future with one time integration step. Here we adopt a modified version of the standard symplectic Euler integration scheme:
 
 \begin{equation}
 	\label{eq18}
@@ -311,6 +314,8 @@ where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $
 
 \section{Position-based Fluid}
 \label{sec3}
+
+Instead of introducing an artificial pressure force to counteract density deviation, position-based fluid poses a scalar constraint $ C_{i} $ on the estimated density of each fluid particle $ i $. The fulfillment of such a constraint implies that the fluid is largely at rest state in the local neighborhood and that the density of the respective particle lies roughly around $ \rho_{0} $. Under circumstances where such a constraint is violated, however, the solver seeks to find, in an Newton-like iterative manner, a position correction that would locally restore the system to the rest state. An outline of a single PBF update is show in Alg. \ref{alg3}.
 
 \large
 \begin{algorithm}
@@ -358,6 +363,8 @@ where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $
 	}
 \end{algorithm}
 \normalsize
+
+In each time step, a range of internal and external forces are evaluated and then used to perform one time integration step. Then, the violation of the 
 
 \section{Experiments}
 \label{sec4}
