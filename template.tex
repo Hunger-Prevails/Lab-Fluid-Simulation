@@ -425,6 +425,47 @@ where $ \beta $ is a hyperparam that controls the scale. Effects of the aforemen
 
 \section{Experiments}
 \label{sec4}
+
+We carry out a wide range of experiments to study the effects of various hyperparams on the behaviour of fluid particles and of the fluid in general.
+
+\subsection{WC-SPH}
+For WC-SPH we fix the scale of our scene and conduct control experiments to test out how different values of pressure stiffness $ \kappa $, viscosity $ \nu $ and friction $ \nu$ would lead to different characteristics of the fluid. Our dam break scene adopts the following configuration:
+
+\begin{itemize}
+    \item Boundary domain: $ 1m \times 5m \times 3m $
+    \item Fluid volume: $ 0.5m \times 3m \times 0.5m $
+    \item Sampling distance: $ 0.1m $
+    \item Maximal timestep: 20ms
+    \item number of particles: 5000
+    \item gravity $ 9.7 m \cdot s^{-2} $
+\end{itemize}
+
+The selection of proper hyperparam values is sensitive to the domain size and sampling distance. For the aforementioned dam break scene we find visually realistic simulations under the combination of $ \kappa = 100.0 $, $ \nu = 0.05 $ and $ \mu = 0.05 $. To tune the hyperparams for a general scene, such a combination could adopted as a starter.
+
+\subsubsection{Pressure Stiffness}
+
+The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
+
+\subsubsection{Viscosity}
+The viscosity coefficient $ \nu $ is used to scale the tractive forces that acts inbetween fluid particles to model the viscous behaviour of the fluid. With such a force applied in a proper scale, the kinematic energy of a high-speed particle can be transferred to adjacent low-speed particles so that the divergence of the local velocity field is lessened and that the fluid particles end up moving as a whole locally. As can be obeserved in Fig. \ref{fig:visco}, on the other hand, a viscosity coefficient too low results in a simulation in which the fluid particles behave rather like randomly bouncing molecules. This implies that the application of viscosity forces indeed dampens the energy of the system as a side effect.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{pics/wcsph_viscosity.png}
+    \caption{Left: well-tuned simulation of a dam break scene; Right: simulation of the same scene with rather low viscosity.}
+    \label{fig:visco}
+\end{figure}
+
+\subsubsection{Friction}
+Similar to $ \nu $, the friction coefficient $ \mu $ is also used to scale a tractive force. What is different is that the latter controls the level of traction between fluid and solid particles. To easily demonstrate the effect of this hyperparam, we tip the container and the fluid cube by a 45-degree angle as an initial configuration. As is shown in Fig. \ref{fig:frict}, with properly scaled friction forces the fluid particles will flow down rather slowly along the slope, which does not happen with a low friction.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.8\textwidth]{pics/wcsph_friction.png}
+    \caption{Left: well-tuned simulation of a tipped dam break scene; Right: simulation of the same scene with rather low friction.}
+    \label{fig:frict}
+\end{figure}
+
 \section{Miscellaneous}
 \label{sec5}
 
