@@ -216,6 +216,17 @@ An outline of our simulation pipeline is illustrated in Alg. \ref{alg2}. To be a
 
 The time step size $ \Delta t $ directly influences how far the system evolves into the future with one time integration step. Here we adopt a modified version of the standard symplectic Euler integration scheme by adding to $ \mathbf{v}_{i}(t + \Delta t) $ a bias that is a weighted average of the velocity differences in the local neighborhood before applying the position update. This modification aims at denoising particle motion in the local area and improves visual plausibility of the animation.
 
+\subsection{Surface Construction}
+
+To properly render an animation scene, construction of the fluid surface in triangular meshes is mandatory. Here we adopt the marching cubes algorithm proposed by \cite{lorensen1987marching}, where the key idea is to evaluate the values of a signed surface function $ \Phi_{\mathbf{x}} $ at discrete vertices $ \mathbf{x} $ of a pre-defined 3D grid, so that vertices of the triangular meshes can be re-created via linear interpolation. For a fluid volume, the signed surface function value is computed as an estimate of particle saturation in the local neighborhood of grid point $ \mathbf{x} $ minus a small bias $ c $:
+
+\begin{equation}
+	\label{eq17}
+	\Phi(\mathbf{x}) = - c + \sum_{j \in \mathcal{N}(\mathbf{x})} \frac{m_{j}}{\rho_{j}} W(\mathbf{x} - \mathbf{x}_{j}, h)
+\end{equation} 
+
+To accelerate evaluation of the surface function throughout the 3D grid, in practice we may instead compute the contribution of each fluid particle to its adjacent grid points separately. As a side note, this surface construction process is detached from the simulation pipeline in our implementation.
+
 \section{Particle Update}
 \label{sec3}
 
@@ -407,10 +418,9 @@ We carry out a wide range of experiments to study the effects of various hyperpa
 
 \subsection{Weakly Compressible SPH}
 
-For weakly compressible SPH we fix the scale of our scene and conduct control experiments to test out how different values of pressure stiffness $ \kappa $, viscosity $ \nu $ and friction $ \nu$ would lead to different characteristics of the fluid. Our dam-break scene adopts the following configuration:
+For weakly compressible SPH we fix the scale of our scene and conduct control experiments to test out how different values of pressure stiffness $ \kappa $, viscosity $ \nu $ and friction $ \nu$ would lead to different characteristics of the fluid. Our dam-break scene adopts the following configurations:
 
 \begin{itemize}
-    \item Boundary domain: $ 2m \times 6.5m \times 4.5m $
     \item Fluid volume: $ 1m \times 5m \times 1m $
     \item Sampling distance: $ 0.1m $
     \item Maximum timestep: $ 10ms $
@@ -420,7 +430,7 @@ For weakly compressible SPH we fix the scale of our scene and conduct control ex
 
 The selection of proper hyperparam values is sensitive to the domain size and sampling distance. For the aforementioned dam-break scene we find visually realistic simulations under the combination of $ \kappa = 100.0 $, $ \nu = 0.05 $ and $ \mu = 0.05 $. To tune the hyperparams for a general scene, such a combination could be adopted as a starter.
 
-\begin{figure}
+\begin{figure}[t]
     \centering
     \includegraphics[width=.6\textwidth]{pics/wcsph_viscosity.png}
     \caption{Left: well-tuned simulation of a dam-break scene; Right: simulation of the same scene with rather low viscosity.}
@@ -431,16 +441,16 @@ The selection of proper hyperparam values is sensitive to the domain size and sa
 
 The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
 
-\begin{figure}
+\subsubsection{Viscosity}
+
+The viscosity coefficient $ \nu $ is used to scale the tractive forces that acts inbetween fluid particles to model the viscous behaviour of the fluid. With such a force applied in a proper scale, the kinematic energy of a high-speed particle can be transferred to adjacent low-speed particles so that the divergence of the local velocity field is lessened and that the fluid particles end up moving as a whole locally. As can be observed in Fig. \ref{fig:visco}, however, too low a viscosity causes the fluid particles to behave rather like randomly bouncing molecules. This implies that the application of viscosity forces indeed dampens the energy of the system as a side effect.
+
+\begin{figure}[h]
     \centering
     \includegraphics[width=.6\textwidth]{pics/wcsph_friction.png}
     \caption{Left: well-tuned simulation of a tipped dam-break scene; Right: simulation of the same scene with rather low friction.}
     \label{fig:frict}
 \end{figure}
-
-\subsubsection{Viscosity}
-
-The viscosity coefficient $ \nu $ is used to scale the tractive forces that acts inbetween fluid particles to model the viscous behaviour of the fluid. With such a force applied in a proper scale, the kinematic energy of a high-speed particle can be transferred to adjacent low-speed particles so that the divergence of the local velocity field is lessened and that the fluid particles end up moving as a whole locally. As can be observed in Fig. \ref{fig:visco}, however, too low a viscosity causes the fluid particles to behave rather like randomly bouncing molecules. This implies that the application of viscosity forces indeed dampens the energy of the system as a side effect.
 
 \subsubsection{Friction}
 
@@ -471,13 +481,6 @@ Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per 
 
 \subsubsection{More Iterations vs. Smaller Timestep}
 
-\begin{figure}
-    \centering
-    \includegraphics[width=.6\textwidth]{pics/pbf_iter_ts.png}
-    \caption{Left: simulation of a double-dam-break scene with high $ T_{0} $ and large $ R $; Right: simulation of the same scene with low $ T_{0} $ and small $ R $.}
-    \label{fig:doubleDam}
-\end{figure}
-
 We try out our PBF solver on a typical double-dam-break test scene with two different configurations as below:
 
 \begin{itemize}
@@ -487,14 +490,14 @@ We try out our PBF solver on a typical double-dam-break test scene with two diff
 
 These two settings apply roughly the same number of corrective iterations for a fixed simulation length. As can be observed in Fig. \ref{fig:doubleDam}, with smaller time step cap and less iterations per update, we achieve arguably more realistic simulations and avoid minor explosions induced by over-pressure at the same time.
 
-\subsubsection{Stride Damper}
-
-\begin{figure}
+\begin{figure}[h]
     \centering
-    \includegraphics[width=.6\textwidth]{pics/pbf_stride_damper.png}
-    \caption{Left: simulation of a dam-break scene with small $ T_{0} $; Right: simulation of the same scene with large $ T_{0} $ and the stride damper applied.}
-    \label{fig:strideDamper}
+    \includegraphics[width=.6\textwidth]{pics/pbf_iter_ts.png}
+    \caption{Left: simulation of a double-dam-break scene with high $ T_{0} $ and large $ R $; Right: simulation of the same scene with low $ T_{0} $ and small $ R $.}
+    \label{fig:doubleDam}
 \end{figure}
+
+\subsubsection{Stride Damper}
 
 An alternative solution is to dampen the position correction stride with a small multiplier $ \sigma $. We try out our PBF solver on a typical dam-break scene with two different configurations as below:
 
@@ -504,6 +507,13 @@ An alternative solution is to dampen the position correction stride with a small
 \end{itemize}
 
 As is shown in Fig. \ref{fig:strideDamper}, both configurations yield visually acceptable results, with slight over-pressure at the bottom of the fluid volume noticable in the second simulation. But in terms of runtime, statistical analysis shows that the former one applies roughly 2.5 times as many corrective iterations as the latter one. Therefore we argue that the stride damper gives a good trade-off between visual plausibility and efficiency.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/pbf_stride_damper.png}
+    \caption{Left: simulation of a dam-break scene with small $ T_{0} $; Right: simulation of the same scene with large $ T_{0} $ and the stride damper applied.}
+    \label{fig:strideDamper}
+\end{figure}
 
 \subsection{Surface Tension}
 
