@@ -30,8 +30,7 @@
 
 \section{Motivation}
 
-In this work, we follow the basic principles of smoothed particle hydrodynamics(SPH) to implement two of the most classic approaches in fluid simulation. We carry out extensive studies on the behavior of fluid particles under varying experimental conditions, as well as provide a handful of insights on how the stability or efficiency of the simulation could be improved by applying a few twists during various stages of the algorithms. The rest of this report will be divided into four sections. In section \ref{sec2}, we underscore the engineering aspect of a non-iterative, weakly-compressible SPH solver; in section \ref{sec3}, we discuss how an iterative procedure can be implemented to model position-based fluid; in section \ref{sec4}, we demonstrate several scenes featuring a variety of fluid behaviors to show the correctness and stability of our implementation; in the last section \ref{sec5}, we discuss how the hyper parameters affect the behavior of the fluid and how we may improve the simulation in terms of speed and robustness.
-
+In this work, we follow the basic principles of smoothed particle hydrodynamics (SPH) to implement two of the most classic approaches in fluid simulation. We carry out extensive studies on the behavior of fluid particles under varying experimental conditions, as well as provide a handful of insights on the reason behind certain fluid behaviours in general. The rest of this report will be divided into three sections. In section \ref{sec2}, we explain how we setup the scene, how we choose to design the simulation pipeline and how the fundamentals of SPH simulation work in our implementation; in section \ref{sec3}, we discuss how particle accelerations are computed in a weakly compressible SPH solver and how an iterative procedure can be implemented to model position-based fluids; in the last section \ref{sec4}, we conduct control experiments under various simulation conditions and scenes to showcase how the different hyperparams affect the behavior of the fluid and how we may improve the simulation in terms of speed and robustness.
 
 \section{Weakly Compressible SPH}
 \label{sec2}
@@ -218,7 +217,7 @@ where
 
 \subsection{Acceleration Computation}
 
-Rather than to enforce strict incompressibility throughout the fluid domain, WC-SPH allows a minor amount of volume compression when fluid particles heavily interact with other particles. Under such circumstances, per-particle density estimation in densely resided regions in the fluid domain would exhibit a deviation from the rest density of the fluid. As a logical consequence, we may evaluate the pressure field at discrete particle locations and observe considerable variances. From such variances, WC-SPH generates a counteractive force for each particle against the spatial gradient of the pressure field in the local neighborhood. An evaluation of the pressure field at the discrete particle location $ \boldsymbol{x}_{i} $ may look like:
+Rather than to enforce strict incompressibility throughout the fluid domain, a WC-SPH solver allows a minor amount of volume compression when fluid particles heavily interact with other particles. Under such circumstances, per-particle density estimation in densely resided regions in the fluid domain would exhibit a deviation from the rest density of the fluid. As a logical consequence, we may evaluate the pressure field at discrete particle locations and observe considerable variances. From such variances, a counteractive force is generated for each particle against the spatial gradient of the pressure field in the local neighborhood. An evaluation of the pressure field at the discrete particle location $ \boldsymbol{x}_{i} $ may look like:
 
 \begin{equation}
 	\label{eq14}
@@ -290,7 +289,7 @@ The time step size $ \Delta t $ directly influences how far the system evolves i
 
 where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $ \mathbf{v}_{i}(t + \Delta t) $ a small bias that is a weighted average of the velocity differences in the local neighborhood and $ \epsilon $ is a hyperparam that controls the magnitude of such a small bias. This modification aims at denoising particle motion in the local area and improves visual plausibility of the animation.
 
-\section{Position-based Fluid}
+\section{Position-based Fluids}
 \label{sec3}
 
 \large
@@ -299,7 +298,7 @@ where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $
 	\SetAlgoLined
 	\SetAlgorithmName{Algorithm}{Algorithm}{List of Algorithms}
 	\SetAlCapNameSty{textbf}
-	\caption{\label{alg3} A Single PBF-SPH Update}
+	\caption{\label{alg3} A Single PBF Update}
 	\SetKwFunction{FMain}{update}
 	\SetKwProg{Fn}{Function}{:}{}
 	\Fn{\FMain{$ \Delta t $}}{
@@ -317,7 +316,7 @@ where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $
 		\For{each particle i}{
 			find neighbors j\;
 		}
-		\For{each iteration t}{
+		\For{each iteration $ r \leq R $}{
 			\For{each particle i}{
 				compute density $ \rho_{i} $\;
 				compute density constraint violation $ C_{i} $\;
@@ -336,7 +335,7 @@ where $ \mathbf{v}_{i}^{*} $ is an intermediate velocity obtained by adding to $
 \end{algorithm}
 \normalsize
 
-Instead of introducing an artificial pressure force to counteract density deviation, position-based fluid poses a scalar constraint $ C_{i} $ on the estimated density of each fluid particle $ i $:
+Instead of introducing an artificial pressure force to counteract density deviation, position-based fluids (PBF) pose a scalar constraint $ C_{i} $ on the estimated density of each fluid particle $ i $:
 
 \begin{equation}
 	\label{eq20}
@@ -381,7 +380,7 @@ where
     \item $ \sigma $ is an artificial damper used to downscale the correction stride.
 \end{itemize}
 
-Since the we are practically reaching for the solution of a non-linear system of equations with a linear approach, this correction may be applied multiple times until the violation shrinks to an acceptable scale. We conduct ablation study on how the number of corrective iterations and the introduction of the stride damper affect the behaviour of the fluid in Sec. \ref{sec4}.
+Since the we are practically reaching for the solution of a non-linear system of equations with a linear approach, this correction may be applied multiple times until the violation shrinks to an acceptable scale. We conduct ablation study on how the number $ R $ of corrective iterations and the introduction of the stride damper $ \sigma $ affect the behaviour of the fluid in Sec. \ref{sec4}.
 
 \subsection{Surface Tension}
 
@@ -428,46 +427,136 @@ where $ \beta $ is a hyperparam that controls the scale. Effects of the aforemen
 
 We carry out a wide range of experiments to study the effects of various hyperparams on the behaviour of fluid particles and of the fluid in general.
 
-\subsection{WC-SPH}
-For WC-SPH we fix the scale of our scene and conduct control experiments to test out how different values of pressure stiffness $ \kappa $, viscosity $ \nu $ and friction $ \nu$ would lead to different characteristics of the fluid. Our dam break scene adopts the following configuration:
+\subsection{Weakly Compressible SPH}
+
+For weakly compressible SPH we fix the scale of our scene and conduct control experiments to test out how different values of pressure stiffness $ \kappa $, viscosity $ \nu $ and friction $ \nu$ would lead to different characteristics of the fluid. Our dam-break scene adopts the following configuration:
 
 \begin{itemize}
-    \item Boundary domain: $ 1m \times 5m \times 3m $
-    \item Fluid volume: $ 0.5m \times 3m \times 0.5m $
+    \item Boundary domain: $ 2m \times 6.5m \times 4.5m $
+    \item Fluid volume: $ 1m \times 5m \times 1m $
     \item Sampling distance: $ 0.1m $
-    \item Maximal timestep: 20ms
-    \item number of particles: 5000
-    \item gravity $ 9.7 m \cdot s^{-2} $
+    \item Maximum timestep: $ 10ms $
+    \item Number of particles: $ 5000 $
+    \item Gravity: $ 9.7m \cdot s^{-2} $
 \end{itemize}
 
-The selection of proper hyperparam values is sensitive to the domain size and sampling distance. For the aforementioned dam break scene we find visually realistic simulations under the combination of $ \kappa = 100.0 $, $ \nu = 0.05 $ and $ \mu = 0.05 $. To tune the hyperparams for a general scene, such a combination could adopted as a starter.
+The selection of proper hyperparam values is sensitive to the domain size and sampling distance. For the aforementioned dam-break scene we find visually realistic simulations under the combination of $ \kappa = 100.0 $, $ \nu = 0.05 $ and $ \mu = 0.05 $. To tune the hyperparams for a general scene, such a combination could be adopted as a starter.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/wcsph_viscosity.png}
+    \caption{Left: well-tuned simulation of a dam-break scene; Right: simulation of the same scene with rather low viscosity.}
+    \label{fig:visco}
+\end{figure}
 
 \subsubsection{Pressure Stiffness}
 
 The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
 
-\subsubsection{Viscosity}
-The viscosity coefficient $ \nu $ is used to scale the tractive forces that acts inbetween fluid particles to model the viscous behaviour of the fluid. With such a force applied in a proper scale, the kinematic energy of a high-speed particle can be transferred to adjacent low-speed particles so that the divergence of the local velocity field is lessened and that the fluid particles end up moving as a whole locally. As can be obeserved in Fig. \ref{fig:visco}, on the other hand, a viscosity coefficient too low results in a simulation in which the fluid particles behave rather like randomly bouncing molecules. This implies that the application of viscosity forces indeed dampens the energy of the system as a side effect.
-
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{pics/wcsph_viscosity.png}
-    \caption{Left: well-tuned simulation of a dam break scene; Right: simulation of the same scene with rather low viscosity.}
-    \label{fig:visco}
-\end{figure}
-
-\subsubsection{Friction}
-Similar to $ \nu $, the friction coefficient $ \mu $ is also used to scale a tractive force. What is different is that the latter controls the level of traction between fluid and solid particles. To easily demonstrate the effect of this hyperparam, we tip the container and the fluid cube by a 45-degree angle as an initial configuration. As is shown in Fig. \ref{fig:frict}, with properly scaled friction forces the fluid particles will flow down rather slowly along the slope, which does not happen with a low friction.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=.8\textwidth]{pics/wcsph_friction.png}
-    \caption{Left: well-tuned simulation of a tipped dam break scene; Right: simulation of the same scene with rather low friction.}
+    \includegraphics[width=.6\textwidth]{pics/wcsph_friction.png}
+    \caption{Left: well-tuned simulation of a tipped dam-break scene; Right: simulation of the same scene with rather low friction.}
     \label{fig:frict}
 \end{figure}
 
-\section{Miscellaneous}
-\label{sec5}
+\subsubsection{Viscosity}
+
+The viscosity coefficient $ \nu $ is used to scale the tractive forces that acts inbetween fluid particles to model the viscous behaviour of the fluid. With such a force applied in a proper scale, the kinematic energy of a high-speed particle can be transferred to adjacent low-speed particles so that the divergence of the local velocity field is lessened and that the fluid particles end up moving as a whole locally. As can be observed in Fig. \ref{fig:visco}, however, too low a viscosity causes the fluid particles to behave rather like randomly bouncing molecules. This implies that the application of viscosity forces indeed dampens the energy of the system as a side effect.
+
+\subsubsection{Friction}
+
+Similar to $ \nu $, the friction coefficient $ \mu $ is also used to scale a tractive force. What is different is that the latter controls the level of traction between fluid and solid particles. To easily demonstrate the effect of this hyperparam, we tip the container and the fluid cube by a 45-degree angle as an initial configuration. As is shown in Fig. \ref{fig:frict}, with properly scaled friction forces the fluid particles flow down rather slowly along the slope. The same does not happen with a low friction.
+
+\subsection{Position-based Fluids}
+
+Compared to WC-SPH, position-based fluids are rather stable against changes in scene configurations. Particles in PBF generally tend to exhibit higher viscosity, so we apply lower viscosity and friction for our experiments in this section. What has more of an impact on PBF simulations is the number $ R $ of corrective iterations per physical update and the maximum time step $ T_{0} $ that is allowed in the simulation. In addition to dam-break, we introduce a range of new test scenes to allow for more interesting observations. For experiments in this section the scenes are configured as follows:
+
+\begin{itemize}
+    \item Sampling distance: $ 0.1m $
+    \item Number of particles: 10000
+    \item Gravity: $ 9.7m \cdot s^{-2} $
+\end{itemize}
+
+\subsubsection{Middle Layer Explosion}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/pbf_iter.png}
+    \caption{Left: well-tuned simulation of a box-fill scene; Right: simulation of the same scene with rather small number of corrective iterations.}
+    \label{fig:boxfill}
+\end{figure}
+
+As we have observed in cases where we set a high time step cap and a low number of corrective iterations per physical update, a common problem for PBF is that the fluid volume tends to experience over pressure and explode from the middle every once in a while, especially when the fluid volume spans over a large depth range. As far as we can tell, such undesired behaviours follow from the fact that in many update steps the density constraints are under-fulfilled. Before the position correction, the over-pressured particles are those at the bottom of the fluid volume. With each corrective iteration, some particles in the lower layers of the fluid volume get transferred upwards, and as a result the pressure in the upper layers gradually rises. Given enough corrective iterations, the pressure experienced in the upper layers will be ultimately restored. However, when the correction procedure prematurely stops, over-pressure is still experienced somewhere in the middle of the fluid volume. Such over-pressure would accumulate over multiple update steps and eventually cause heavy explosions.
+
+Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per update, the fluid will fill the container and then flow out of it smoothly after the container becomes full. With only 3 iterations, however, the fluid volume explodes roughly once every second. To solve this issue, we need to either apply smaller time steps or allow for more corrective iterations per update. According to the next set of experiments, taking the former option is a better choice.
+
+\subsubsection{More Iterations vs. Smaller Timestep}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/pbf_iter_ts.png}
+    \caption{Left: simulation of a double-dam-break scene with high $ T_{0} $ and large $ R $; Right: simulation of the same scene with low $ T_{0} $ and small $ R $.}
+    \label{fig:doubleDam}
+\end{figure}
+
+We try out our PBF solver on a typical double-dam-break test scene with two different configurations as below:
+
+\begin{itemize}
+    \item $ T_{0} = 4ms $, $ \quad R = 8 $ iterations
+    \item $ T_{0} = 2ms $, $ \quad R = 4 $ iterations
+\end{itemize}
+
+These two settings apply roughly the same number of corrective iterations for a fixed simulation length. As can be observed in Fig. \ref{fig:doubleDam}, with smaller time step cap and less iterations per update, we achieve arguably more realistic simulations and avoid minor explosions induced by over-pressure at the same time.
+
+\subsubsection{Stride Damper}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/pbf_stride_damper.png}
+    \caption{Left: simulation of a dam-break scene with small $ T_{0} $; Right: simulation of the same scene with large $ T_{0} $ and the stride damper applied.}
+    \label{fig:strideDamper}
+\end{figure}
+
+An alternative solution is to dampen the position correction stride with a small multiplier $ \sigma $. We try out our PBF solver on a typical dam-break scene with two different configurations as below:
+
+\begin{itemize}
+    \item $ T_{0} = 1ms $, $ \quad R = 3 $ iterations, $ \quad \sigma = 1.0 $
+    \item $ T_{0} = 5ms $, $ \quad R = 3 $ iterations, $ \quad \sigma = 0.01 $
+\end{itemize}
+
+As is shown in Fig. \ref{fig:strideDamper}, both configurations yield visually acceptable results, with slight over-pressure at the bottom of the fluid volume noticable in the second simulation. But in terms of runtime, statistical analysis shows that the former one applies roughly 2.5 times as many corrective iterations as the latter one. Therefore we argue that the stride damper gives a good trade-off between visual plausibility and efficiency.
+
+\subsection{Surface Tension}
+
+In our simulations the scale of cohesion forces, i.e., attractive forces that act between fluid particles, is controlled by $ \gamma $. The scale of adhesive forces, i.e., forces that model the tendency of fluid particles to attach to solid surfaces, is controlled by $ \beta $. We conduct various control experiments to test out how different values of $ \gamma $ and $ \beta $ affect the fluid behaviour in terms of surface tension.
+
+\subsubsection{Zero Gravity}
+
+To verify how the choice of simulation solver affect surface tension in general, we place a fluid cube in the middle of the camera view and remove gravity to see how the outer surface of the fluid volume evolves with respect to time. We additionally test out how different values of $ \gamma $ affect the evolving process. As is shown in Fig. \ref{fig:no_gravity}, we may draw the following conclusions:
+
+\begin{itemize}
+    \item With a high $ \gamma $, the convergence of the fluid cube to a perfect sphere is faster.
+    \item With a low $ \gamma $, the PBF solver demonstrates far better stability while the WC-SPH solver suffers from an oscillation problem.
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/surface_tension.png}
+    \caption{Shape of fluid volume after half a second}
+    \label{fig:no_gravity}
+\end{figure}
+
+\subsubsection{Wetting}
+
+To verify how the choice of adhesion coefficient $ \beta $ may affect the fluid behaviour, we place a solid sphere under a particle generator that regularly emits fluid particles with a fixed intitial velocity, and observe how the fluid particles would attach to the sphere surface as they make contact. As can be observed in Fig. \ref{fig:wetting}, the higher the coefficient value, the stronger the attraction between fluid and solid particles. Depending on what type of fluid the user wants to model, the adhesion coefficient should empirically be selected from the range $ [1.0, 5.0] $.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/adhesion.png}
+    \caption{Experiments of adhesion}
+    \label{fig:wetting}
+\end{figure}
 
 \bibliographystyle{alpha}
 \bibliography{references}
