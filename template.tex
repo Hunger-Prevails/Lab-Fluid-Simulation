@@ -225,7 +225,14 @@ To properly render an animation scene, construction of the fluid surface in tria
 	\Phi(\mathbf{x}) = - c + \sum_{j \in \mathcal{N}(\mathbf{x})} \frac{m_{j}}{\rho_{j}} W(\mathbf{x} - \mathbf{x}_{j}, h)
 \end{equation} 
 
-To accelerate evaluation of the surface function throughout the 3D grid, in practice we may instead compute the contribution of each fluid particle to its adjacent grid points separately. As a side note, this surface construction process is detached from the simulation pipeline in our implementation.
+To accelerate evaluation of the surface function throughout the 3D grid, in practice we may instead compute the contribution of each fluid particle to its adjacent grid points separately. As a side note, this surface construction process is detached from the simulation pipeline in our implementation. Fig. \ref{fig:surface} is an example of the outlook of our fluid volume after surface construction.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/surface.png}
+    \caption{The outlook of our fluid volume after surface construction.}
+    \label{fig:surface}
+\end{figure}
 
 \section{Particle Update}
 \label{sec3}
@@ -233,6 +240,8 @@ To accelerate evaluation of the surface function throughout the 3D grid, in prac
 We implement particle update solvers for weakly compressible SPH and position-based fluids separately.
 
 \subsection{Weakly Compressible SPH}
+
+In weakly compressible SPH, physical properties of fluid particles are updated through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. An outline of a single WC-SPH update is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately to facilitate instant evaluation of function values at discrete locations in the fluid domain, which in the context of WC-SPH takes the form of an interpolation. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are evaluated for each particle and the resultant accelerations are accumulated for time integration.
 
 \medskip
 \begin{algorithm}[H]
@@ -261,8 +270,6 @@ We implement particle update solvers for weakly compressible SPH and position-ba
 \end{algorithm}
 \medskip
 
-In weakly compressible SPH, physical properties of fluid particles are updated through an array of explicit state equations. Fluid particles move around as a result of inter-particle interactions and external forces that act upon them. An outline of a single WC-SPH update is shown in Alg. \ref{alg1}. At the beginning of such an update step, a neighborhood search is carried out to determine the spatial neighbors of each fluid particle. Fluid and solid particle neighbors are stored separately to facilitate instant evaluation of function values at discrete locations in the fluid domain, which in the context of WC-SPH takes the form of an interpolation. Then, the fluid particle densities are estimated as they will be needed for the computation of interaction forces. As a logical next step, the incurred forces are evaluated for each particle and the resultant accelerations are accumulated for time integration.
-
 Rather than to enforce strict incompressibility throughout the fluid domain, WC-SPH solvers allow a minor amount of volume compression to happen at every time step. Under such circumstances, per-particle density estimation in densely resided regions in the fluid domain would exhibit a deviation from the rest density of the fluid. As a consequence, we may observe considerable variances at discrete particle locations in the pressure field. To counteract such variances, a pressure force $ \mathbf{F}_{i}^{p} $ in the opposite direction to the spatial gradient of the pressure field is then generated for each particle. An evaluation of the pressure field at the discrete particle location $ \boldsymbol{x}_{i} $ may look like:
 
 \begin{equation}
@@ -288,13 +295,6 @@ Instead of introducing an artificial pressure force to counteract density deviat
 \begin{equation}
 	\label{eq20}
 	C_{i}(\hat{\boldsymbol{x}}) = \frac{\rho_{i}(\hat{\boldsymbol{x}})}{\rho_{0}} - 1 = 0
-\end{equation}
-
-where $ \hat{\boldsymbol{x}} $ denotes the concatenation of all position vectors involved in the computation of $ \rho_{i} $. The fulfillment of such a constraint implies that the fluid is largely at rest state in the local neighborhood and that the density of the respective particle lies roughly around $ \rho_{0} $. Under circumstances where such a constraint is violated, however, the solver seeks to find, in a Newton-like iterative manner, a position correction $ \Delta \hat{\boldsymbol{x}} $ that would locally restore the system to the rest state:
-
-\begin{equation}
-	\label{eq21}
-	C_{i}(\hat{\boldsymbol{x}} + \Delta \hat{\boldsymbol{x}}) = 0
 \end{equation}
 
 \medskip
@@ -339,6 +339,13 @@ where $ \hat{\boldsymbol{x}} $ denotes the concatenation of all position vectors
 	}
 \end{algorithm}
 \medskip
+
+where $ \hat{\boldsymbol{x}} $ denotes the concatenation of all position vectors involved in the computation of $ \rho_{i} $. The fulfillment of such a constraint implies that the fluid is largely at rest state in the local neighborhood and that the density of the respective particle lies roughly around $ \rho_{0} $. Under circumstances where such a constraint is violated, however, the solver seeks to find, in a Newton-like iterative manner, a position correction $ \Delta \hat{\boldsymbol{x}} $ that would locally restore the system to the rest state:
+
+\begin{equation}
+	\label{eq21}
+	C_{i}(\hat{\boldsymbol{x}} + \Delta \hat{\boldsymbol{x}}) = 0
+\end{equation}
 
 An outline of a single PBF update is shown in Alg. \ref{alg3}. In each time step, accelerations that result from a range of internal and external forces are evaluated and then used to perform one time integration step. Then, the violation of the density constraint is determined for each particle. Out of the need to enforce volume conservation, we compute a position correction $ \Delta \hat{\boldsymbol{x}} $ that lies in the opposite direction as the spatial gradient of the constraint $ \nabla C_{i} $:
 
@@ -430,16 +437,16 @@ For weakly compressible SPH we fix the scale of our scene and conduct control ex
 
 The selection of proper hyperparam values is sensitive to the domain size and sampling distance. For the aforementioned dam-break scene we find visually realistic simulations under the combination of $ \kappa = 100.0 $, $ \nu = 0.05 $ and $ \mu = 0.05 $. To tune the hyperparams for a general scene, such a combination could be adopted as a starter.
 
-\begin{figure}[t]
+\subsubsection{Pressure Stiffness}
+
+The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
+
+\begin{figure}[h]
     \centering
     \includegraphics[width=.6\textwidth]{pics/wcsph_viscosity.png}
     \caption{Left: well-tuned simulation of a dam-break scene; Right: simulation of the same scene with rather low viscosity.}
     \label{fig:visco}
 \end{figure}
-
-\subsubsection{Pressure Stiffness}
-
-The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
 
 \subsubsection{Viscosity}
 
@@ -466,7 +473,7 @@ Compared to WC-SPH, position-based fluids are rather stable against changes in s
     \item Gravity: $ 9.7m \cdot s^{-2} $
 \end{itemize}
 
-\subsubsection{Middle Layer Explosion}
+\subsubsection{Middle-Layer Explosion}
 
 \begin{figure}
     \centering
@@ -477,9 +484,9 @@ Compared to WC-SPH, position-based fluids are rather stable against changes in s
 
 As we have observed in cases where we set a high time step cap and a low number of corrective iterations per physical update, a common problem for PBF is that the fluid volume tends to experience over pressure and explode from the middle every once in a while, especially when the fluid volume spans over a large depth range. As far as we can tell, such undesired behaviours follow from the fact that in many update steps the density constraints are under-fulfilled. Before the position correction, the over-pressured particles are those at the bottom of the fluid volume. With each corrective iteration, some particles in the lower layers of the fluid volume get transferred upwards, and as a result the pressure in the upper layers gradually rises. Given enough corrective iterations, the pressure experienced in the upper layers will be ultimately restored. However, when the correction procedure prematurely stops, over-pressure is still experienced somewhere in the middle of the fluid volume. Such over-pressure would accumulate over multiple update steps and eventually cause heavy explosions.
 
-Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per update, the fluid will fill the container and then flow out of it smoothly after the container becomes full. With only 3 iterations, however, the fluid volume explodes roughly once every second. To solve this issue, we need to either apply smaller time steps or allow for more corrective iterations per update. According to the next set of experiments, taking the former option is a better choice.
+Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per update, the fluid fills the container and then flow out of it smoothly after the container becomes full. With only 3 iterations, however, the fluid volume explodes roughly once every second. To solve this issue, we need to either apply smaller time steps or allow for more corrective iterations per update. According to the next set of experiments, taking the former option is a better choice.
 
-\subsubsection{More Iterations vs. Smaller Timestep}
+\subsubsection{Double-Dam-Break}
 
 We try out our PBF solver on a typical double-dam-break test scene with two different configurations as below:
 
@@ -517,33 +524,59 @@ As is shown in Fig. \ref{fig:strideDamper}, both configurations yield visually a
 
 \subsection{Surface Tension}
 
-In our simulations the scale of cohesion forces, i.e., attractive forces that act between fluid particles, is controlled by $ \gamma $. The scale of adhesive forces, i.e., forces that model the tendency of fluid particles to attach to solid surfaces, is controlled by $ \beta $. We conduct various control experiments to test out how different values of $ \gamma $ and $ \beta $ affect the fluid behaviour in terms of surface tension.
+In our simulations the scale of cohesion forces, i.e., attractive forces that act inbetween fluid particles, is controlled by $ \gamma $. The weight of adhesive forces, i.e., forces that model the tendency of fluid particles to attach to solid surfaces, is represented by $ \beta $. We conduct various control experiments to test out how different values of $ \gamma $ and $ \beta $ affect the fluid behaviour in terms of surface tension.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=.6\textwidth]{pics/surface_tension.png}
+    \caption{Shape of fluid volume after half a second.}
+    \label{fig:no_gravity}
+\end{figure}
 
 \subsubsection{Zero Gravity}
 
 To verify how the choice of simulation solver affect surface tension in general, we place a fluid cube in the middle of the camera view and remove gravity to see how the outer surface of the fluid volume evolves with respect to time. We additionally test out how different values of $ \gamma $ affect the evolving process. As is shown in Fig. \ref{fig:no_gravity}, we may draw the following conclusions:
 
 \begin{itemize}
-    \item With a high $ \gamma $, the convergence of the fluid cube to a perfect sphere is faster.
-    \item With a low $ \gamma $, the PBF solver demonstrates far better stability while the WC-SPH solver suffers from an oscillation problem.
+    \item Under large $ \gamma $ values, convergence of the fluid cube to a perfect sphere is faster.
+    \item Under small $ \gamma $ values, the WC-SPH solver suffers from oscillation in comparison.
 \end{itemize}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=.6\textwidth]{pics/surface_tension.png}
-    \caption{Shape of fluid volume after half a second}
-    \label{fig:no_gravity}
-\end{figure}
 
 \subsubsection{Wetting}
 
 To verify how the choice of adhesion coefficient $ \beta $ may affect the fluid behaviour, we place a solid sphere under a particle generator that regularly emits fluid particles with a fixed intitial velocity, and observe how the fluid particles would attach to the sphere surface as they make contact. As can be observed in Fig. \ref{fig:wetting}, the higher the coefficient value, the stronger the attraction between fluid and solid particles. Depending on what type of fluid the user wants to model, the adhesion coefficient should empirically be selected from the range $ [1.0, 5.0] $.
 
-\begin{figure}
+\begin{figure}[h]
     \centering
     \includegraphics[width=.6\textwidth]{pics/adhesion.png}
-    \caption{Experiments of adhesion}
+    \caption{Wetting effect under different values of adhesion coefficient.}
     \label{fig:wetting}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+    \includegraphics[width=.6\textwidth]{pics/comparison.png}
+    \caption{Left: well-tuned simulation of a sphere-fill scene driven by PBF solver; Right: simulation of the same scene driven by WC-SPH solver under similar hyperparam settings.}
+    \label{fig:comparison}
+\end{figure}
+
+\subsection{Comparison}
+
+With an inherently different philosophy at its core, PBF solvers can entail very different outcomes compared to WC-SPH solvers even under similar scene configurations. To demonstrate this, we setup our solvers using a common hyperparam configuration that would suit both solvers under simple dam-break scenes, then place a particle emitter at the center of a spherical container to see how the fluid particles driven by different solvers would behave in general. As can be observed from Fig. \ref{fig:comparison}, the fluid particles in our PBF simulation demonstrate good stability even under heavy interactions. In contrast, in our WC-SPH simulation some particles leak out of the container due to insufficient pressure support, while some others bounce back heavily upon initial contact with the border. To summarize the differences, we list out below some key aspects of the PBF solver that is quite noticable:
+
+\begin{itemize}
+    \item PBF solvers demand typically much less of a tuning effort for new scenes.
+    \item PBF solvers entail more viscous fluid behaviour in general.
+    \item PBF solvers are better suited to scenes featuring intensive interactions.
+\end{itemize}
+
+However, the aforementioned merits of PBF solvers does not come without a price. To understand how both solvers behave in terms of their performance, we conduct (for a fixed dam-break scene) a quantitative analysis on how their runtime (under the assumption that both solvers manage to govern a stable simulation) grow with an increasing number of fluid particles. As can be observed in Fig. \ref{fig:performance}, the runtime of both solvers scale linearly with the number of particles and the PBF solver demands more time to handle the same number of particles. Considering a large part of the runtime for each update step is devoted to the neighborhood search, the actual performance gap is even higher than what is exhibited in the graph.
+
+\begin{figure}[h]
+	\centering
+    \includegraphics[width=.6\textwidth]{pics/performance.png}
+    \caption{The runtime demanded by both solvers with respect to an increasing number of fluid particles in the simulation.}
+    \label{fig:performance}
 \end{figure}
 
 \bibliographystyle{alpha}
