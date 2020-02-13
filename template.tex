@@ -218,7 +218,7 @@ The time step size $ \Delta t $ directly influences how far the system evolves i
 
 \subsection{Surface Construction}
 
-To properly render an animation scene, construction of the fluid surface in triangular meshes is mandatory. Here we adopt the marching cubes algorithm proposed by \cite{lorensen1987marching}, where the key idea is to evaluate the values of a signed surface function $ \Phi_{\mathbf{x}} $ at discrete vertices $ \mathbf{x} $ of a pre-defined 3D grid, so that vertices of the triangular meshes can be re-created via linear interpolation. For a fluid volume, the signed surface function value is computed as an estimate of particle saturation in the local neighborhood of grid point $ \mathbf{x} $ minus a small bias $ c $:
+To properly render an animation scene, construction of the fluid surface in triangular meshes is mandatory. Here we adopt the marching cubes algorithm proposed by \cite{lorensen1987marching}, where the key idea is to evaluate the values of a signed surface function $ \Phi(\mathbf{x}) $ at discrete vertices $ \mathbf{x} $ of a pre-defined 3D grid, so that vertices of the triangular meshes can be re-created via linear interpolation. For a fluid volume, the signed surface function value is computed as an estimate of particle saturation in the local neighborhood of grid point $ \mathbf{x} $ minus a small bias $ c $:
 
 \begin{equation}
 	\label{eq17}
@@ -421,7 +421,7 @@ where $ \beta $ is a hyperparam that controls the scale. Effects of the aforemen
 \section{Experiments}
 \label{sec4}
 
-We carry out a wide range of experiments to study the effects of various hyperparams on the behaviour of fluid particles and of the fluid in general.
+We carry out a wide range of experiments to study the effects of various hyperparams on the behaviour of fluid particles and on the fluid in general.
 
 \subsection{Weakly Compressible SPH}
 
@@ -439,7 +439,7 @@ The selection of proper hyperparam values is sensitive to the domain size and sa
 
 \subsubsection{Pressure Stiffness}
 
-The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions upon even mild particle interactions.
+The stiffness coefficient $ \kappa $ is used to scale the pressure forces generated to counteract density deviation. When a low stiffness coefficient is applied, volume conservation fails to a large extent and some fluid particles leak through the container boundary since there is not enough pressure force to prevent such penetration. The estimated density in the bottom part of the fluid domain will significantly exceed the rest density of the fluid. On the other hand, when the stiffness value is set too high, the counteractive pressure forces are so intense that they will cause instant explosions amid even mild particle interactions.
 
 \begin{figure}[h]
     \centering
@@ -482,13 +482,13 @@ Compared to WC-SPH, position-based fluids are rather stable against changes in s
     \label{fig:boxfill}
 \end{figure}
 
-As we have observed in cases where we set a high time step cap and a low number of corrective iterations per physical update, a common problem for PBF is that the fluid volume tends to experience over pressure and explode from the middle every once in a while, especially when the fluid volume spans over a large depth range. As far as we can tell, such undesired behaviours follow from the fact that in many update steps the density constraints are under-fulfilled. Before the position correction, the over-pressured particles are those at the bottom of the fluid volume. With each corrective iteration, some particles in the lower layers of the fluid volume get transferred upwards, and as a result the pressure in the upper layers gradually rises. Given enough corrective iterations, the pressure experienced in the upper layers will be ultimately restored. However, when the correction procedure prematurely stops, over-pressure is still experienced somewhere in the middle of the fluid volume. Such over-pressure would accumulate over multiple update steps and eventually cause heavy explosions.
+As we have observed in cases where we set a high time step cap and a low number of corrective iterations per physical update, a common problem for PBF is that the fluid volume tends to experience over pressure and explode from the middle every once in a while, especially when the fluid volume spans over a large depth range. As far as we can tell, such undesired behaviour follows from the fact that in many update steps the density constraints are under-fulfilled. Before the position correction, the over-pressured particles are those at the bottom of the fluid volume. With each corrective iteration, some particles in the lower layers of the fluid volume get transferred upwards, and as a result the pressure in the upper layers gradually rises. Given enough corrective iterations, the pressure experienced in the upper layers will be ultimately restored. However, when the correction procedure prematurely stops, over-pressure is still experienced somewhere in the middle of the fluid volume. Such over-pressure would accumulate over multiple update steps and eventually cause heavy explosions.
 
-Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per update, the fluid fills the container and then flow out of it smoothly after the container becomes full. With only 3 iterations, however, the fluid volume explodes roughly once every second. To solve this issue, we need to either apply smaller time steps or allow for more corrective iterations per update. According to the next set of experiments, taking the former option is a better choice.
+Fig. \ref{fig:boxfill} illustrates an example: With 9 corrective iterations per update, the fluid fills the container and then flows out of it smoothly. With only 3 iterations, however, the fluid volume explodes roughly once every second. To solve this issue, we need to either apply smaller time steps or allow for more corrective iterations per update. According to the next set of experiments, taking the former option is a better choice.
 
 \subsubsection{Double-Dam-Break}
 
-We try out our PBF solver on a typical double-dam-break test scene with two different configurations as below:
+We try out our PBF solver on a typical double-dam-break test scene with the two different configurations listed below:
 
 \begin{itemize}
     \item $ T_{0} = 4ms $, $ \quad R = 8 $ iterations
@@ -506,7 +506,7 @@ These two settings apply roughly the same number of corrective iterations for a 
 
 \subsubsection{Stride Damper}
 
-An alternative solution is to dampen the position correction stride with a small multiplier $ \sigma $. We try out our PBF solver on a typical dam-break scene with two different configurations as below:
+An alternative solution is to dampen the position correction stride with a small multiplier $ \sigma $. We try out our PBF solver on a typical dam-break scene with the two different configurations listed below:
 
 \begin{itemize}
     \item $ T_{0} = 1ms $, $ \quad R = 3 $ iterations, $ \quad \sigma = 1.0 $
